@@ -1,15 +1,31 @@
 {
   "name": "llm_json_stream",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A streaming JSON parser for TypeScript optimized for LLM responses",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
   },
-  "keywords": [],
+  "keywords": [
+    "json",
+    "streaming",
+    "parser",
+    "llm",
+    "ai",
+    "reactive"
+  ],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.10.1",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
 }

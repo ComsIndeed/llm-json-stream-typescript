@@ -1,0 +1,25 @@
+/**
+ * Delegate for parsing JSON string values.
+ * Handles escape sequences and streaming of string content.
+ */
+
+import { PropertyDelegate } from "./property_delegate.js";
+import { JsonStreamParserController } from "../json_stream_parser.js";
+
+export class StringPropertyDelegate extends PropertyDelegate {
+    constructor(
+        propertyPath: string,
+        parserController: JsonStreamParserController,
+        onComplete?: () => void,
+    ) {
+        super(propertyPath, parserController, onComplete);
+    }
+
+    addCharacter(character: string): void {
+        // TODO: Implementation
+    }
+
+    override onChunkEnd(): void {
+        // TODO: Implementation
+    }
+}
