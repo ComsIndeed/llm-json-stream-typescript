@@ -6,6 +6,8 @@ import { PropertyDelegate } from "./property_delegate.js";
 import { JsonStreamParserController } from "../json_stream_parser.js";
 
 export class NullPropertyDelegate extends PropertyDelegate {
+    private buffer = "";
+
     constructor(
         propertyPath: string,
         parserController: JsonStreamParserController,
@@ -15,6 +17,24 @@ export class NullPropertyDelegate extends PropertyDelegate {
     }
 
     addCharacter(character: string): void {
-        // TODO: Implementation
+        // Check for delimiters that end the null
+        if (character === "," || character === "}" || character === "]") {
+            if (!this.isDone && this.buffer === "null") {
+                this.isDone = true;
+                this.parserController.completeProperty(this.propertyPath, null);
+                this.onComplete?.();
+            }
+            return;
+        }
+
+        // Build the buffer
+        this.buffer += character;
+
+        // Check if we've completed parsing null
+        if (this.buffer === "null") {
+            this.isDone = true;
+            this.parserController.completeProperty(this.propertyPath, null);
+            this.onComplete?.();
+        }
     }
 }

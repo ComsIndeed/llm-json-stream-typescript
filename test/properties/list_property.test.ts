@@ -1,5 +1,9 @@
 /**
  * Tests for list/array property parsing
+ * Uses async iterators as the primary streaming interface.
+ *
+ * NOTE: Lists emit SNAPSHOTS as elements complete.
+ * Each emission contains the current state of the array.
  */
 
 import { describe, expect, test } from "@jest/globals";
@@ -215,5 +219,28 @@ describe("List Property Tests", () => {
         const finalValue = await numbersStream.promise;
         expect(finalValue).toEqual(numbers);
         expect(finalValue.length).toBe(100);
+    });
+
+    test("async iterator emits list snapshots", async () => {
+        const json = '{"items":[1,2,3]}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 5,
+            interval: 10,
+        });
+
+        const parser = new JsonStreamParser(stream);
+        const itemsStream = parser.getListProperty("items");
+
+        // Collect all snapshots using async iterator
+        const snapshots: any[][] = [];
+        for await (const snapshot of itemsStream) {
+            snapshots.push([...snapshot]); // Copy to preserve state
+        }
+
+        // Should have received incremental snapshots
+        // Final snapshot should have all elements
+        expect(snapshots.length).toBeGreaterThan(0);
+        expect(snapshots[snapshots.length - 1]).toEqual([1, 2, 3]);
     });
 });

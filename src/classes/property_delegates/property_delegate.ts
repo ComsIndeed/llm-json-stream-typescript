@@ -25,6 +25,13 @@ export abstract class PropertyDelegate {
     ) {}
 
     /**
+     * Returns whether this delegate has finished parsing.
+     */
+    get done(): boolean {
+        return this.isDone;
+    }
+
+    /**
      * Creates a new property path by appending to the current path.
      */
     protected newPath(path: string): string {

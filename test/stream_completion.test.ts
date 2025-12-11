@@ -82,17 +82,24 @@ describe("Stream Completion Tests", () => {
         let listener1Completed = false;
         let listener2Completed = false;
 
-        messageStream.stream?.on("data", () => {});
-        messageStream.stream?.on("end", () => {
+        // Two separate async iterators from the same stream
+        const listener1 = (async () => {
+            for await (const _ of messageStream) {
+                // Just consume
+            }
             listener1Completed = true;
-        });
+        })();
 
-        messageStream.stream?.on("data", () => {});
-        messageStream.stream?.on("end", () => {
+        const listener2 = (async () => {
+            for await (const _ of messageStream) {
+                // Just consume
+            }
             listener2Completed = true;
-        });
+        })();
 
         await messageStream.promise;
+        await listener1;
+        await listener2;
 
         // Give events time to propagate
         await new Promise((resolve) => setTimeout(resolve, 50));

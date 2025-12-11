@@ -57,11 +57,14 @@ describe("Visual Demonstration of Bug Scenario", () => {
         const xStream = parser.getStringProperty("x");
 
         const streamEvents: string[] = [];
-        xStream.stream?.on("data", (chunk: string) => {
-            streamEvents.push(chunk);
-        });
+        const collectChunks = (async () => {
+            for await (const chunk of xStream) {
+                streamEvents.push(chunk);
+            }
+        })();
 
         const result = await xStream.promise;
+        await collectChunks;
 
         expect(result).toBe("a");
         expect(streamEvents.length).toBeGreaterThan(0);
@@ -80,11 +83,14 @@ describe("Visual Demonstration of Bug Scenario", () => {
         const titleStream = parser.getStringProperty("title");
 
         const chunks: string[] = [];
-        titleStream.stream?.on("data", (chunk: string) => {
-            chunks.push(chunk);
-        });
+        const collectChunks = (async () => {
+            for await (const chunk of titleStream) {
+                chunks.push(chunk);
+            }
+        })();
 
         const result = await titleStream.promise;
+        await collectChunks;
 
         expect(result).toBe("My Great Blog Post");
         expect(chunks.join("")).toBe("My Great Blog Post");
@@ -104,11 +110,14 @@ describe("Visual Demonstration of Bug Scenario", () => {
         const responseStream = parser.getStringProperty("response");
 
         const chunks: string[] = [];
-        responseStream.stream?.on("data", (chunk: string) => {
-            chunks.push(chunk);
-        });
+        const collectChunks = (async () => {
+            for await (const chunk of responseStream) {
+                chunks.push(chunk);
+            }
+        })();
 
         const result = await responseStream.promise;
+        await collectChunks;
 
         expect(result).toBe(
             "This is a realistic LLM response that comes in chunks",

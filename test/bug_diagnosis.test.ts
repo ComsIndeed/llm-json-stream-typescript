@@ -1,5 +1,6 @@
 /**
  * Tests for bug diagnosis and debugging scenarios
+ * Uses async iterators as the primary streaming interface.
  */
 
 import { describe, expect, test } from "@jest/globals";
@@ -29,7 +30,7 @@ describe("Bug Diagnosis Tests", () => {
     });
 
     test("diagnose: stream events not firing", async () => {
-        // Test that stream events fire correctly
+        // Test that stream events fire correctly using async iterator
         const json = '{"text":"Hello World"}';
 
         const stream = streamTextInChunks({
@@ -42,11 +43,9 @@ describe("Bug Diagnosis Tests", () => {
         const textStream = parser.getStringProperty("text");
 
         let eventCount = 0;
-        textStream.stream?.on("data", () => {
+        for await (const chunk of textStream) {
             eventCount++;
-        });
-
-        await textStream.promise;
+        }
 
         expect(eventCount).toBeGreaterThan(0); // Events should have fired
     });
@@ -91,9 +90,10 @@ describe("Bug Diagnosis Tests", () => {
 
         const elements: number[] = [];
 
-        // Add callback
-        listStream.onElement((element) => {
-            elements.push(element as unknown as number);
+        // Add callback - receives the stream, await its promise to get the value
+        listStream.onElement(async (elementStream) => {
+            const value = await elementStream.promise;
+            elements.push(value as number);
         });
 
         await listStream.promise;
@@ -139,7 +139,8 @@ describe("Bug Diagnosis Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const value = await parser.getStringProperty("longPropertyName").promise;
+        const value = await parser.getStringProperty("longPropertyName")
+            .promise;
 
         expect(value).toBe("longPropertyValue");
     });

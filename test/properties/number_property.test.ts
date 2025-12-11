@@ -1,5 +1,9 @@
 /**
  * Tests for number property parsing
+ * Uses async iterators as the primary streaming interface.
+ *
+ * NOTE: Numbers are atomic values - they emit ONCE when parsing completes,
+ * not incrementally like strings.
  */
 
 import { describe, expect, test } from "@jest/globals";
@@ -19,12 +23,13 @@ describe("Number Property Tests", () => {
         const ageStream = parser.getNumberProperty("age");
 
         const streamEvents: number[] = [];
-        ageStream.stream?.on("data", (value: number) => {
+        for await (const value of ageStream) {
             streamEvents.push(value);
-        });
+        }
 
         const finalValue = await ageStream.promise;
 
+        // Number emits once when complete
         expect(streamEvents).toEqual([30]);
         expect(finalValue).toBe(30);
     });
@@ -156,5 +161,27 @@ describe("Number Property Tests", () => {
         expect(val0).toBe(95);
         expect(val1).toBe(87);
         expect(val2).toBe(92);
+    });
+
+    test("async iterator emits number value once", async () => {
+        const json = '{"value":42}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 3,
+            interval: 10,
+        });
+
+        const parser = new JsonStreamParser(stream);
+        const valueStream = parser.getNumberProperty("value");
+
+        // Use async iterator pattern
+        const values: number[] = [];
+        for await (const value of valueStream) {
+            values.push(value);
+        }
+
+        // Number emits exactly once with the final value
+        expect(values.length).toBe(1);
+        expect(values[0]).toBe(42);
     });
 });

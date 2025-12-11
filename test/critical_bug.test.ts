@@ -21,11 +21,14 @@ describe("Critical Bug Tests", () => {
         const messageStream = parser.getStringProperty("message");
 
         const chunks: string[] = [];
-        messageStream.stream?.on("data", (chunk: string) => {
-            chunks.push(chunk);
-        });
+        const collectChunks = (async () => {
+            for await (const chunk of messageStream) {
+                chunks.push(chunk);
+            }
+        })();
 
         const message = await messageStream.promise;
+        await collectChunks;
 
         expect(message).toBe("Hello World");
         expect(chunks.length).toBeGreaterThan(0); // Should have emitted chunks

@@ -69,8 +69,9 @@ describe("Debug Nested List Tests", () => {
 
         const innerArrays: string[][] = [];
 
-        outerStream.onElement((element, index) => {
-            innerArrays.push(element as unknown as string[]);
+        outerStream.onElement(async (elementStream, index) => {
+            const value = await elementStream.promise;
+            innerArrays.push(value as string[]);
         });
 
         await outerStream.promise;

@@ -1,5 +1,9 @@
 /**
  * Tests for boolean property parsing
+ * Uses async iterators as the primary streaming interface.
+ *
+ * NOTE: Booleans are atomic values - they emit ONCE when parsing completes,
+ * not incrementally like strings.
  */
 
 import { describe, expect, test } from "@jest/globals";
@@ -18,11 +22,11 @@ describe("Boolean Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const activeStream = parser.getBooleanProperty("active");
 
-        // Collect stream events
+        // Collect stream events using async iterator
         const streamEvents: boolean[] = [];
-        activeStream.stream?.on("data", (value: boolean) => {
+        for await (const value of activeStream) {
             streamEvents.push(value);
-        });
+        }
 
         // Wait for the future to resolve
         const finalValue = await activeStream.promise;
@@ -44,9 +48,9 @@ describe("Boolean Property Tests", () => {
         const enabledStream = parser.getBooleanProperty("enabled");
 
         const streamEvents: boolean[] = [];
-        enabledStream.stream?.on("data", (value: boolean) => {
+        for await (const value of enabledStream) {
             streamEvents.push(value);
-        });
+        }
 
         const finalValue = await enabledStream.promise;
 
@@ -115,5 +119,27 @@ describe("Boolean Property Tests", () => {
         expect(activeVal).toBe(true);
         expect(enabledVal).toBe(false);
         expect(verifiedVal).toBe(true);
+    });
+
+    test("async iterator emits boolean value once", async () => {
+        const json = '{"flag":true}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 3,
+            interval: 10,
+        });
+
+        const parser = new JsonStreamParser(stream);
+        const flagStream = parser.getBooleanProperty("flag");
+
+        // Use async iterator pattern
+        const values: boolean[] = [];
+        for await (const value of flagStream) {
+            values.push(value);
+        }
+
+        // Boolean emits exactly once with the final value
+        expect(values.length).toBe(1);
+        expect(values[0]).toBe(true);
     });
 });

@@ -1,5 +1,6 @@
 /**
  * Tests for buffer flushing behavior
+ * Uses async iterators as the primary streaming interface.
  */
 
 import { describe, expect, test } from "@jest/globals";
@@ -20,9 +21,9 @@ describe("Buffer Flush Tests", () => {
         const textStream = parser.getStringProperty("text");
 
         const chunks: string[] = [];
-        textStream.stream?.on("data", (chunk: string) => {
+        for await (const chunk of textStream) {
             chunks.push(chunk);
-        });
+        }
 
         const result = await textStream.promise;
 

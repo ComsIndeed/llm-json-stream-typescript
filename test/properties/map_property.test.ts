@@ -1,5 +1,9 @@
 /**
  * Tests for map/object property parsing
+ * Uses async iterators as the primary streaming interface.
+ *
+ * NOTE: Maps emit SNAPSHOTS as properties complete.
+ * Each emission contains the current state of the object.
  */
 
 import { describe, expect, test } from "@jest/globals";
@@ -132,5 +136,31 @@ describe("Map Property Tests", () => {
 
         expect(name).toBe("Alice");
         expect(role).toBe("Engineer");
+    });
+
+    test("async iterator emits map snapshots", async () => {
+        const json = '{"name":"Alice","age":30}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 5,
+            interval: 10,
+        });
+
+        const parser = new JsonStreamParser(stream);
+        const rootStream = parser.getMapProperty("");
+
+        // Collect all snapshots using async iterator
+        const snapshots: Record<string, any>[] = [];
+        for await (const snapshot of rootStream) {
+            snapshots.push({ ...snapshot }); // Copy to preserve state
+        }
+
+        // Should have received incremental snapshots
+        // Final snapshot should have both properties
+        expect(snapshots.length).toBeGreaterThan(0);
+        expect(snapshots[snapshots.length - 1]).toEqual({
+            name: "Alice",
+            age: 30,
+        });
     });
 });

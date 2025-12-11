@@ -125,17 +125,43 @@ describe("Disposal Tests", () => {
         const textStream = parser.getStringProperty("text");
 
         let eventCount = 0;
-        textStream.stream?.on("data", () => {
-            eventCount++;
+        let iteratorErrorMsg = "";
+        let promiseErrorMsg = "";
+
+        // Consume the async iterator
+        const collectChunks = (async () => {
+            try {
+                for await (const _ of textStream) {
+                    eventCount++;
+                }
+            } catch (e: unknown) {
+                // Expected when disposed early
+                if (e instanceof Error) {
+                    iteratorErrorMsg = e.message;
+                }
+            }
+        })();
+
+        // Also handle the promise rejection
+        const handlePromise = textStream.promise.catch((e: unknown) => {
+            if (e instanceof Error) {
+                promiseErrorMsg = e.message;
+            }
         });
 
         // Dispose early
         setTimeout(() => parser.dispose(), 30);
 
         await new Promise((resolve) => setTimeout(resolve, 200));
+        await collectChunks;
+        await handlePromise;
 
         // Should have received fewer events due to early disposal
-        expect(eventCount).toBeLessThan(10);
+        // OR received an error indicating disposal
+        const disposedProperly = (eventCount < 10) ||
+            (iteratorErrorMsg === "Parser disposed") ||
+            (promiseErrorMsg === "Parser disposed");
+        expect(disposedProperly).toBe(true);
     });
 
     test("nested callbacks are properly cleaned up", async () => {

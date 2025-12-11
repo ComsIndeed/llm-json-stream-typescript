@@ -1,5 +1,9 @@
 /**
  * Tests for null property parsing
+ * Uses async iterators as the primary streaming interface.
+ *
+ * NOTE: Null is an atomic value - it emits ONCE when parsing completes,
+ * not incrementally like strings.
  */
 
 import { describe, expect, test } from "@jest/globals";
@@ -19,12 +23,13 @@ describe("Null Property Tests", () => {
         const valueStream = parser.getNullProperty("value");
 
         const streamEvents: null[] = [];
-        valueStream.stream?.on("data", (value: null) => {
+        for await (const value of valueStream) {
             streamEvents.push(value);
-        });
+        }
 
         const finalValue = await valueStream.promise;
 
+        // Null emits once when complete
         expect(streamEvents).toEqual([null]);
         expect(finalValue).toBeNull();
     });
@@ -90,5 +95,27 @@ describe("Null Property Tests", () => {
         expect(aVal).toBeNull();
         expect(bVal).toBeNull();
         expect(cVal).toBeNull();
+    });
+
+    test("async iterator emits null value once", async () => {
+        const json = '{"value":null}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 3,
+            interval: 10,
+        });
+
+        const parser = new JsonStreamParser(stream);
+        const valueStream = parser.getNullProperty("value");
+
+        // Use async iterator pattern
+        const values: null[] = [];
+        for await (const value of valueStream) {
+            values.push(value);
+        }
+
+        // Null emits exactly once
+        expect(values.length).toBe(1);
+        expect(values[0]).toBeNull();
     });
 });
