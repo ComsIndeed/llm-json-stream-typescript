@@ -12,11 +12,11 @@ describe("Debug Simple List", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        console.log("=== Big chunks test ===");
+        // console.log("=== Big chunks test ===");
         const numbersStream = parser.getListProperty("numbers");
 
         const result = await numbersStream.promise;
-        console.log("Result:", result);
+        // console.log("Result:", result);
 
         expect(result).toEqual([1, 2, 3]);
     });

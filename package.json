@@ -1,6 +1,6 @@
 {
   "name": "llm_json_stream",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "A streaming JSON parser for TypeScript optimized for LLM responses",
   "type": "module",
   "main": "./dist/index.js",
@@ -19,8 +19,22 @@
     "ai",
     "reactive"
   ],
-  "author": "",
-  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ComsIndeed/llm_json_stream_typescript.git"
+  },
+  "homepage": "https://github.com/ComsIndeed/llm_json_stream_typescript#readme",
+  "bugs": {
+    "url": "https://github.com/ComsIndeed/llm_json_stream_typescript/issues"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "author": "Vincent San Nicolas",
+  "license": "MIT",
   "devDependencies": {
     "@types/jest": "^29.5.12",
     "@types/node": "^22.10.1",
