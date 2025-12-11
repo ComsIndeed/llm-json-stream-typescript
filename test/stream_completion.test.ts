@@ -21,9 +21,9 @@ describe("Stream Completion Tests", () => {
         const active = parser.getBooleanProperty("active");
 
         const [nameVal, ageVal, activeVal] = await Promise.all([
-            name.future,
-            age.future,
-            active.future,
+            name.promise,
+            age.promise,
+            active.promise,
         ]);
 
         expect(nameVal).toBe("Alice");
@@ -42,7 +42,7 @@ describe("Stream Completion Tests", () => {
         const parser = new JsonStreamParser(stream);
         const valueStream = parser.getNumberProperty("value");
 
-        const result = await valueStream.future;
+        const result = await valueStream.promise;
         expect(result).toBe(42);
     });
 
@@ -60,7 +60,7 @@ describe("Stream Completion Tests", () => {
         // This should either reject or timeout
         await expect(
             Promise.race([
-                ageStream.future,
+                ageStream.promise,
                 new Promise((_, reject) =>
                     setTimeout(() => reject(new Error("Timeout")), 500)
                 ),
@@ -82,17 +82,17 @@ describe("Stream Completion Tests", () => {
         let listener1Completed = false;
         let listener2Completed = false;
 
-        messageStream.stream.on("data", () => {});
-        messageStream.stream.on("end", () => {
+        messageStream.stream?.on("data", () => {});
+        messageStream.stream?.on("end", () => {
             listener1Completed = true;
         });
 
-        messageStream.stream.on("data", () => {});
-        messageStream.stream.on("end", () => {
+        messageStream.stream?.on("data", () => {});
+        messageStream.stream?.on("end", () => {
             listener2Completed = true;
         });
 
-        await messageStream.future;
+        await messageStream.promise;
 
         // Give events time to propagate
         await new Promise((resolve) => setTimeout(resolve, 50));
@@ -117,7 +117,7 @@ describe("Stream Completion Tests", () => {
             elements.push(index);
         });
 
-        await itemsStream.future;
+        await itemsStream.promise;
 
         expect(elements).toEqual([0, 1, 2]);
     });
@@ -136,9 +136,9 @@ describe("Stream Completion Tests", () => {
         const inner = parser.getStringProperty("outer.middle.inner");
 
         const [outerVal, middleVal, innerVal] = await Promise.all([
-            outer.future,
-            middle.future,
-            inner.future,
+            outer.promise,
+            middle.promise,
+            inner.promise,
         ]);
 
         expect(innerVal).toBe("value");

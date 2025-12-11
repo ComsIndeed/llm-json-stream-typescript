@@ -21,11 +21,11 @@ describe("Critical Bug Tests", () => {
         const messageStream = parser.getStringProperty("message");
 
         const chunks: string[] = [];
-        messageStream.stream.on("data", (chunk: string) => {
+        messageStream.stream?.on("data", (chunk: string) => {
             chunks.push(chunk);
         });
 
-        const message = await messageStream.future;
+        const message = await messageStream.promise;
 
         expect(message).toBe("Hello World");
         expect(chunks.length).toBeGreaterThan(0); // Should have emitted chunks
@@ -56,7 +56,7 @@ describe("Critical Bug Tests", () => {
             }
         });
 
-        await outerStream.future;
+        await outerStream.promise;
 
         // Callbacks should have been called
         expect(innerCallbackCount).toBe(3);
@@ -79,8 +79,8 @@ describe("Critical Bug Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const name = await parser.getStringProperty("name").future;
-        const value = await parser.getNumberProperty("value").future;
+        const name = await parser.getStringProperty("name").promise;
+        const value = await parser.getNumberProperty("value").promise;
 
         expect(name).toBe("Test");
         expect(value).toBe(42);
@@ -97,7 +97,7 @@ describe("Critical Bug Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const text = await parser.getStringProperty("text").future;
+        const text = await parser.getStringProperty("text").promise;
 
         expect(text).toBe('Line\nBreak\tTab"Quote\\Backslash');
     });
@@ -116,8 +116,8 @@ describe("Critical Bug Tests", () => {
 
         // Access in different orders
         const [direct, stepped] = await Promise.all([
-            parser.getStringProperty("a.b.c").future,
-            parser.getMapProperty("a.b").future.then((map) => map.c),
+            parser.getStringProperty("a.b.c").promise,
+            parser.getMapProperty("a.b").promise.then((map) => map.c),
         ]);
 
         expect(direct).toBe("value");
@@ -135,7 +135,7 @@ describe("Critical Bug Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const value = await parser.getNumberProperty("value").future;
+        const value = await parser.getNumberProperty("value").promise;
 
         // JavaScript number precision limits apply
         expect(typeof value).toBe("number");
@@ -154,8 +154,8 @@ describe("Critical Bug Tests", () => {
 
         const parser = new JsonStreamParser(stream);
         const [empty, notEmpty] = await Promise.all([
-            parser.getStringProperty("empty").future,
-            parser.getStringProperty("notEmpty").future,
+            parser.getStringProperty("empty").promise,
+            parser.getStringProperty("notEmpty").promise,
         ]);
 
         expect(empty).toBe("");

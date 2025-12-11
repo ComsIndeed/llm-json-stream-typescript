@@ -18,7 +18,7 @@ describe("Disposal Tests", () => {
         const parser = new JsonStreamParser(stream);
         const nameStream = parser.getStringProperty("name");
 
-        await nameStream.future;
+        await nameStream.promise;
         await parser.dispose();
 
         // After disposal, parser should be cleaned up
@@ -40,7 +40,7 @@ describe("Disposal Tests", () => {
         setTimeout(() => parser.dispose(), 20);
 
         // Future should reject or handle disposal gracefully
-        await expect(nameStream.future).rejects.toThrow();
+        await expect(nameStream.promise).rejects.toThrow();
     });
 
     test("dispose after stream completes", async () => {
@@ -54,7 +54,7 @@ describe("Disposal Tests", () => {
         const parser = new JsonStreamParser(stream);
         const valueStream = parser.getNumberProperty("value");
 
-        await valueStream.future;
+        await valueStream.promise;
         await parser.dispose();
 
         // Should not throw
@@ -104,7 +104,7 @@ describe("Disposal Tests", () => {
         const parser = new JsonStreamParser(stream);
         const valueStream = parser.getNumberProperty("value");
 
-        const futurePromise = valueStream.future;
+        const futurePromise = valueStream.promise;
 
         // Dispose while future is pending
         await parser.dispose();
@@ -125,7 +125,7 @@ describe("Disposal Tests", () => {
         const textStream = parser.getStringProperty("text");
 
         let eventCount = 0;
-        textStream.stream.on("data", () => {
+        textStream.stream?.on("data", () => {
             eventCount++;
         });
 
@@ -154,7 +154,7 @@ describe("Disposal Tests", () => {
             callbacks.push(index);
         });
 
-        await itemsStream.future;
+        await itemsStream.promise;
         await parser.dispose();
 
         // Callbacks should have been registered before disposal
@@ -173,7 +173,7 @@ describe("Disposal Tests", () => {
         const parser = new JsonStreamParser(stream);
         const dataStream = parser.getListProperty("data");
 
-        await dataStream.future;
+        await dataStream.promise;
         await parser.dispose();
 
         // Parser should be cleaned up (specific checks depend on implementation)

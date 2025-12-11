@@ -20,11 +20,11 @@ describe("Buffer Flush Tests", () => {
         const textStream = parser.getStringProperty("text");
 
         const chunks: string[] = [];
-        textStream.stream.on("data", (chunk: string) => {
+        textStream.stream?.on("data", (chunk: string) => {
             chunks.push(chunk);
         });
 
-        const result = await textStream.future;
+        const result = await textStream.promise;
 
         expect(result).toBe("HelloWorld");
         // Should have received multiple chunks
@@ -42,7 +42,7 @@ describe("Buffer Flush Tests", () => {
         const parser = new JsonStreamParser(stream);
         const valueStream = parser.getStringProperty("value");
 
-        const result = await valueStream.future;
+        const result = await valueStream.promise;
         expect(result).toBe("test");
     });
 
@@ -58,7 +58,7 @@ describe("Buffer Flush Tests", () => {
         const parser = new JsonStreamParser(stream);
         const textStream = parser.getStringProperty("text");
 
-        const result = await textStream.future;
+        const result = await textStream.promise;
         expect(result).toBe("Hello\nWorld");
     });
 
@@ -73,7 +73,7 @@ describe("Buffer Flush Tests", () => {
         const parser = new JsonStreamParser(stream);
         const numberStream = parser.getNumberProperty("number");
 
-        const result = await numberStream.future;
+        const result = await numberStream.promise;
         expect(result).toBe(12345);
     });
 
@@ -91,9 +91,9 @@ describe("Buffer Flush Tests", () => {
         const c = parser.getNullProperty("c");
 
         const [aVal, bVal, cVal] = await Promise.all([
-            a.future,
-            b.future,
-            c.future,
+            a.promise,
+            b.promise,
+            c.promise,
         ]);
 
         expect(aVal).toBe(true);
@@ -112,7 +112,7 @@ describe("Buffer Flush Tests", () => {
         const parser = new JsonStreamParser(stream);
         const valueStream = parser.getStringProperty("longPropertyName");
 
-        const result = await valueStream.future;
+        const result = await valueStream.promise;
         expect(result).toBe("value");
     });
 
@@ -130,9 +130,9 @@ describe("Buffer Flush Tests", () => {
         const c = parser.getStringProperty("c");
 
         const [aVal, bVal, cVal] = await Promise.all([
-            a.future,
-            b.future,
-            c.future,
+            a.promise,
+            b.promise,
+            c.promise,
         ]);
 
         expect(aVal).toBe("test1");

@@ -20,11 +20,11 @@ describe("String Property Tests", () => {
 
         // Accumulate stream chunks
         const chunks: string[] = [];
-        nameStream.stream.on("data", (chunk: string) => {
+        nameStream.stream?.on("data", (chunk: string) => {
             chunks.push(chunk);
         });
 
-        const finalValue = await nameStream.future;
+        const finalValue = await nameStream.promise;
 
         // Verify accumulated chunks form the complete value
         expect(chunks.join("")).toBe("Alice");
@@ -43,11 +43,11 @@ describe("String Property Tests", () => {
         const textStream = parser.getStringProperty("text");
 
         const chunks: string[] = [];
-        textStream.stream.on("data", (chunk: string) => {
+        textStream.stream?.on("data", (chunk: string) => {
             chunks.push(chunk);
         });
 
-        const finalValue = await textStream.future;
+        const finalValue = await textStream.promise;
 
         expect(chunks.join("")).toBe("Hello\nWorld");
         expect(finalValue).toBe("Hello\nWorld");
@@ -64,7 +64,7 @@ describe("String Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const textStream = parser.getStringProperty("text");
 
-        const finalValue = await textStream.future;
+        const finalValue = await textStream.promise;
         expect(finalValue).toBe("Hello\tWorld");
     });
 
@@ -79,7 +79,7 @@ describe("String Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const textStream = parser.getStringProperty("text");
 
-        const finalValue = await textStream.future;
+        const finalValue = await textStream.promise;
         expect(finalValue).toBe('She said "Hello"');
     });
 
@@ -94,7 +94,7 @@ describe("String Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const pathStream = parser.getStringProperty("path");
 
-        const finalValue = await pathStream.future;
+        const finalValue = await pathStream.promise;
         expect(finalValue).toBe("C:\\Users\\Name");
     });
 
@@ -109,7 +109,7 @@ describe("String Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const valueStream = parser.getStringProperty("value");
 
-        const finalValue = await valueStream.future;
+        const finalValue = await valueStream.promise;
         expect(finalValue).toBe("");
     });
 
@@ -124,7 +124,7 @@ describe("String Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const emojiStream = parser.getStringProperty("emoji");
 
-        const finalValue = await emojiStream.future;
+        const finalValue = await emojiStream.promise;
         expect(finalValue).toBe("Hello 👋 World 🌍");
     });
 
@@ -142,11 +142,11 @@ describe("String Property Tests", () => {
         const descStream = parser.getStringProperty("description");
 
         const chunks: string[] = [];
-        descStream.stream.on("data", (chunk: string) => {
+        descStream.stream?.on("data", (chunk: string) => {
             chunks.push(chunk);
         });
 
-        const finalValue = await descStream.future;
+        const finalValue = await descStream.promise;
 
         // Should have received multiple chunks
         expect(chunks.length).toBeGreaterThan(1);
@@ -166,11 +166,11 @@ describe("String Property Tests", () => {
         const titleStream = parser.getStringProperty("title");
 
         const chunks: string[] = [];
-        titleStream.stream.on("data", (chunk: string) => {
+        titleStream.stream?.on("data", (chunk: string) => {
             chunks.push(chunk);
         });
 
-        const finalValue = await titleStream.future;
+        const finalValue = await titleStream.promise;
 
         // The string should be emitted in chunks as it's parsed
         expect(chunks.length).toBeGreaterThan(0);
@@ -189,7 +189,65 @@ describe("String Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const nameStream = parser.getStringProperty("user.name");
 
-        const finalValue = await nameStream.future;
+        const finalValue = await nameStream.promise;
         expect(finalValue).toBe("Bob");
+    });
+
+    test("async iterator pattern with for await...of", async () => {
+        const json = '{"message":"Hello World from LLM"}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 5,
+            interval: 10,
+        });
+
+        const parser = new JsonStreamParser(stream);
+        const messageStream = parser.getStringProperty("message");
+
+        // Accumulate chunks using modern async iterator
+        const chunks: string[] = [];
+        for await (const chunk of messageStream) {
+            chunks.push(chunk);
+        }
+
+        // Verify accumulated chunks form the complete value
+        const result = chunks.join("");
+        expect(result).toBe("Hello World from LLM");
+        expect(chunks.length).toBeGreaterThan(1); // Ensure we got multiple chunks
+    });
+
+    test("async iterator with non-streaming types", async () => {
+        const json = '{"count":42,"active":true,"value":null}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 5,
+            interval: 10,
+        });
+
+        const parser = new JsonStreamParser(stream);
+
+        // Number type
+        const countStream = parser.getNumberProperty("count");
+        const countChunks: string[] = [];
+        for await (const chunk of countStream) {
+            countChunks.push(chunk);
+        }
+        expect(countChunks).toEqual(["42"]);
+
+        // Boolean type
+        const activeStream = parser.getBooleanProperty("active");
+        const activeChunks: string[] = [];
+        for await (const chunk of activeStream) {
+            activeChunks.push(chunk);
+        }
+        expect(activeChunks).toEqual(["true"]);
+
+        // Null type
+        const valueStream = parser.getNullProperty("value");
+        const valueChunks: string[] = [];
+        for await (const chunk of valueStream) {
+            valueChunks.push(chunk);
+        }
+        expect(valueChunks).toEqual(["null"]);
     });
 });

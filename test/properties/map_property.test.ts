@@ -18,7 +18,7 @@ describe("Map Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const rootStream = parser.getMapProperty("");
 
-        const finalValue = await rootStream.future;
+        const finalValue = await rootStream.promise;
         expect(finalValue).toEqual({ name: "Alice", age: 30 });
     });
 
@@ -33,7 +33,7 @@ describe("Map Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const dataStream = parser.getMapProperty("data");
 
-        const finalValue = await dataStream.future;
+        const finalValue = await dataStream.promise;
         expect(finalValue).toEqual({});
     });
 
@@ -48,7 +48,7 @@ describe("Map Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const profileStream = parser.getMapProperty("user.profile");
 
-        const finalValue = await profileStream.future;
+        const finalValue = await profileStream.promise;
         expect(finalValue).toEqual({ name: "Bob" });
     });
 
@@ -63,7 +63,7 @@ describe("Map Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const rootStream = parser.getMapProperty("");
 
-        const finalValue = await rootStream.future;
+        const finalValue = await rootStream.promise;
         expect(finalValue).toEqual({
             name: "Alice",
             age: 30,
@@ -83,7 +83,7 @@ describe("Map Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const deepStream = parser.getMapProperty("a.b.c.d");
 
-        const finalValue = await deepStream.future;
+        const finalValue = await deepStream.promise;
         expect(finalValue).toEqual({ e: "deep" });
     });
 
@@ -100,8 +100,8 @@ describe("Map Property Tests", () => {
         const emailStream = parser.getStringProperty("user.email");
 
         const [name, email] = await Promise.all([
-            nameStream.future,
-            emailStream.future,
+            nameStream.promise,
+            emailStream.promise,
         ]);
 
         expect(name).toBe("Alice");
@@ -126,8 +126,8 @@ describe("Map Property Tests", () => {
         );
 
         const [name, role] = await Promise.all([
-            employeeName.future,
-            employeeRole.future,
+            employeeName.promise,
+            employeeRole.promise,
         ]);
 
         expect(name).toBe("Alice");

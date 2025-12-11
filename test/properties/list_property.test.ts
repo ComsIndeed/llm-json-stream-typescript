@@ -18,7 +18,7 @@ describe("List Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const numbersStream = parser.getListProperty("numbers");
 
-        const finalValue = await numbersStream.future;
+        const finalValue = await numbersStream.promise;
         expect(finalValue).toEqual([1, 2, 3]);
     });
 
@@ -33,7 +33,7 @@ describe("List Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const itemsStream = parser.getListProperty("items");
 
-        const finalValue = await itemsStream.future;
+        const finalValue = await itemsStream.promise;
         expect(finalValue).toEqual([]);
     });
 
@@ -48,7 +48,7 @@ describe("List Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const namesStream = parser.getListProperty("names");
 
-        const finalValue = await namesStream.future;
+        const finalValue = await namesStream.promise;
         expect(finalValue).toEqual(["Alice", "Bob", "Charlie"]);
     });
 
@@ -63,7 +63,7 @@ describe("List Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const usersStream = parser.getListProperty("users");
 
-        const finalValue = await usersStream.future;
+        const finalValue = await usersStream.promise;
         expect(finalValue).toEqual([{ name: "Alice" }, { name: "Bob" }]);
     });
 
@@ -78,7 +78,7 @@ describe("List Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const matrixStream = parser.getListProperty("matrix");
 
-        const finalValue = await matrixStream.future;
+        const finalValue = await matrixStream.promise;
         expect(finalValue).toEqual([[1, 2], [3, 4]]);
     });
 
@@ -93,7 +93,7 @@ describe("List Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const mixedStream = parser.getListProperty("mixed");
 
-        const finalValue = await mixedStream.future;
+        const finalValue = await mixedStream.promise;
         expect(finalValue).toEqual([1, "text", true, null]);
     });
 
@@ -111,9 +111,9 @@ describe("List Property Tests", () => {
         const item2 = parser.getStringProperty("items[2]");
 
         const [val0, val1, val2] = await Promise.all([
-            item0.future,
-            item1.future,
-            item2.future,
+            item0.promise,
+            item1.promise,
+            item2.promise,
         ]);
 
         expect(val0).toBe("first");
@@ -137,7 +137,7 @@ describe("List Property Tests", () => {
             callbackFired.push(index);
         });
 
-        await itemsStream.future;
+        await itemsStream.promise;
 
         expect(callbackFired).toEqual([0, 1, 2, 3, 4]);
     });
@@ -158,7 +158,7 @@ describe("List Property Tests", () => {
             indices.push(index);
         });
 
-        await dataStream.future;
+        await dataStream.promise;
 
         expect(indices).toEqual([0, 1, 2]);
     });
@@ -177,8 +177,8 @@ describe("List Property Tests", () => {
         const user1Name = parser.getStringProperty("users[1].name");
 
         const [name0, name1] = await Promise.all([
-            user0Name.future,
-            user1Name.future,
+            user0Name.promise,
+            user1Name.promise,
         ]);
 
         expect(name0).toBe("Alice");
@@ -196,7 +196,7 @@ describe("List Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const deepArray = parser.getListProperty("level1[0].level2[0].level3");
 
-        const finalValue = await deepArray.future;
+        const finalValue = await deepArray.promise;
         expect(finalValue).toEqual([1, 2, 3]);
     });
 
@@ -212,7 +212,7 @@ describe("List Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const numbersStream = parser.getListProperty("numbers");
 
-        const finalValue = await numbersStream.future;
+        const finalValue = await numbersStream.promise;
         expect(finalValue).toEqual(numbers);
         expect(finalValue.length).toBe(100);
     });

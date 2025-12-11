@@ -30,9 +30,9 @@ describe("Comprehensive Chunk Size & Speed Matrix", () => {
             const activeStream = parser.getBooleanProperty("active");
 
             const [name, age, active] = await Promise.all([
-                nameStream.future,
-                ageStream.future,
-                activeStream.future,
+                nameStream.promise,
+                ageStream.promise,
+                activeStream.promise,
             ]);
 
             expect(name).toBe("Alice");
@@ -57,11 +57,11 @@ describe("Visual Demonstration of Bug Scenario", () => {
         const xStream = parser.getStringProperty("x");
 
         const streamEvents: string[] = [];
-        xStream.stream.on("data", (chunk: string) => {
+        xStream.stream?.on("data", (chunk: string) => {
             streamEvents.push(chunk);
         });
 
-        const result = await xStream.future;
+        const result = await xStream.promise;
 
         expect(result).toBe("a");
         expect(streamEvents.length).toBeGreaterThan(0);
@@ -80,11 +80,11 @@ describe("Visual Demonstration of Bug Scenario", () => {
         const titleStream = parser.getStringProperty("title");
 
         const chunks: string[] = [];
-        titleStream.stream.on("data", (chunk: string) => {
+        titleStream.stream?.on("data", (chunk: string) => {
             chunks.push(chunk);
         });
 
-        const result = await titleStream.future;
+        const result = await titleStream.promise;
 
         expect(result).toBe("My Great Blog Post");
         expect(chunks.join("")).toBe("My Great Blog Post");
@@ -104,11 +104,11 @@ describe("Visual Demonstration of Bug Scenario", () => {
         const responseStream = parser.getStringProperty("response");
 
         const chunks: string[] = [];
-        responseStream.stream.on("data", (chunk: string) => {
+        responseStream.stream?.on("data", (chunk: string) => {
             chunks.push(chunk);
         });
 
-        const result = await responseStream.future;
+        const result = await responseStream.promise;
 
         expect(result).toBe(
             "This is a realistic LLM response that comes in chunks",
@@ -132,7 +132,7 @@ describe("Complex JSON Structures", () => {
             "level1.level2.level3.items",
         );
 
-        const result = await itemsStream.future;
+        const result = await itemsStream.promise;
         expect(result).toEqual([1, 2, 3]);
     });
 
@@ -155,12 +155,12 @@ describe("Complex JSON Structures", () => {
         const parser = new JsonStreamParser(stream);
 
         const [str, num, bool, nul, arr, obj] = await Promise.all([
-            parser.getStringProperty("string").future,
-            parser.getNumberProperty("number").future,
-            parser.getBooleanProperty("boolean").future,
-            parser.getNullProperty("null").future,
-            parser.getListProperty("array").future,
-            parser.getMapProperty("object").future,
+            parser.getStringProperty("string").promise,
+            parser.getNumberProperty("number").promise,
+            parser.getBooleanProperty("boolean").promise,
+            parser.getNullProperty("null").promise,
+            parser.getListProperty("array").promise,
+            parser.getMapProperty("object").promise,
         ]);
 
         expect(str).toBe("text");
@@ -182,7 +182,7 @@ describe("Complex JSON Structures", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const rootMap = await parser.getMapProperty("").future;
+        const rootMap = await parser.getMapProperty("").promise;
 
         expect(rootMap).toMatchObject({
             str: "hello",

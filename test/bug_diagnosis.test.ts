@@ -21,7 +21,7 @@ describe("Bug Diagnosis Tests", () => {
         const valueStream = parser.getNumberProperty("value");
 
         const startTime = Date.now();
-        const value = await valueStream.future;
+        const value = await valueStream.promise;
         const elapsed = Date.now() - startTime;
 
         expect(value).toBe(42);
@@ -42,11 +42,11 @@ describe("Bug Diagnosis Tests", () => {
         const textStream = parser.getStringProperty("text");
 
         let eventCount = 0;
-        textStream.stream.on("data", () => {
+        textStream.stream?.on("data", () => {
             eventCount++;
         });
 
-        await textStream.future;
+        await textStream.promise;
 
         expect(eventCount).toBeGreaterThan(0); // Events should have fired
     });
@@ -64,10 +64,10 @@ describe("Bug Diagnosis Tests", () => {
         const parser = new JsonStreamParser(stream);
 
         const [int, float, neg, sci] = await Promise.all([
-            parser.getNumberProperty("int").future,
-            parser.getNumberProperty("float").future,
-            parser.getNumberProperty("neg").future,
-            parser.getNumberProperty("sci").future,
+            parser.getNumberProperty("int").promise,
+            parser.getNumberProperty("float").promise,
+            parser.getNumberProperty("neg").promise,
+            parser.getNumberProperty("sci").promise,
         ]);
 
         expect(int).toBe(42);
@@ -96,7 +96,7 @@ describe("Bug Diagnosis Tests", () => {
             elements.push(element as unknown as number);
         });
 
-        await listStream.future;
+        await listStream.promise;
 
         // Dispose should clean up
         parser.dispose();
@@ -118,9 +118,9 @@ describe("Bug Diagnosis Tests", () => {
 
         // Access properties concurrently
         const promises = [
-            parser.getNumberProperty("a").future,
-            parser.getNumberProperty("b").future,
-            parser.getNumberProperty("c").future,
+            parser.getNumberProperty("a").promise,
+            parser.getNumberProperty("b").promise,
+            parser.getNumberProperty("c").promise,
         ];
 
         const [a, b, c] = await Promise.all(promises);
@@ -139,7 +139,7 @@ describe("Bug Diagnosis Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const value = await parser.getStringProperty("longPropertyName").future;
+        const value = await parser.getStringProperty("longPropertyName").promise;
 
         expect(value).toBe("longPropertyValue");
     });
@@ -155,7 +155,7 @@ describe("Bug Diagnosis Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const path = await parser.getStringProperty("path").future;
+        const path = await parser.getStringProperty("path").promise;
 
         expect(path).toBe("C:\\Users\\test\\file.txt");
     });
@@ -173,8 +173,8 @@ describe("Bug Diagnosis Tests", () => {
         const parser = new JsonStreamParser(stream);
 
         // Access child before parent completes
-        const childPromise = parser.getStringProperty("parent.child").future;
-        const otherPromise = parser.getStringProperty("other").future;
+        const childPromise = parser.getStringProperty("parent.child").promise;
+        const otherPromise = parser.getStringProperty("other").promise;
 
         const [child, other] = await Promise.all([childPromise, otherPromise]);
 

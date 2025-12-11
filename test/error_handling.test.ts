@@ -18,10 +18,10 @@ describe("Error Handling Tests", () => {
         const parser = new JsonStreamParser(stream);
         const nameStream = parser.getStringProperty("name");
 
-        const name = await nameStream.future;
+        const name = await nameStream.promise;
         expect(name).toBe("Alice");
 
-        const rootMap = await parser.getMapProperty("").future;
+        const rootMap = await parser.getMapProperty("").promise;
         expect(rootMap).toEqual({ name: "Alice" });
     });
 
@@ -34,8 +34,8 @@ describe("Error Handling Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const item0 = await parser.getNumberProperty("items[0]").future;
-        const item1 = await parser.getNumberProperty("items[1]").future;
+        const item0 = await parser.getNumberProperty("items[0]").promise;
+        const item1 = await parser.getNumberProperty("items[1]").promise;
 
         expect(item0).toBe(1);
         expect(item1).toBe(2);
@@ -55,7 +55,7 @@ describe("Error Handling Tests", () => {
         // Should reject or timeout
         await expect(
             Promise.race([
-                ageStream.future,
+                ageStream.promise,
                 new Promise((_, reject) =>
                     setTimeout(() => reject(new Error("Timeout")), 500)
                 ),
@@ -77,7 +77,7 @@ describe("Error Handling Tests", () => {
         // Should reject due to malformed JSON
         await expect(
             Promise.race([
-                nameStream.future,
+                nameStream.promise,
                 new Promise((_, reject) =>
                     setTimeout(() => reject(new Error("Timeout")), 500)
                 ),
@@ -100,7 +100,7 @@ describe("Error Handling Tests", () => {
 
         await expect(
             Promise.race([
-                ageStream.future,
+                ageStream.promise,
                 new Promise((_, reject) =>
                     setTimeout(() => reject(new Error("Type mismatch")), 500)
                 ),
@@ -122,7 +122,7 @@ describe("Error Handling Tests", () => {
         // Non-existent property should timeout or reject
         await expect(
             Promise.race([
-                ageStream.future,
+                ageStream.promise,
                 new Promise((_, reject) =>
                     setTimeout(
                         () => reject(new Error("Property not found")),
@@ -147,7 +147,7 @@ describe("Error Handling Tests", () => {
         // Out of bounds should timeout or reject
         await expect(
             Promise.race([
-                item10.future,
+                item10.promise,
                 new Promise((_, reject) =>
                     setTimeout(
                         () => reject(new Error("Index out of bounds")),
@@ -191,7 +191,7 @@ describe("Error Handling Tests", () => {
         // Simulate stream error
         setTimeout(() => stream.destroy(new Error("Stream error")), 20);
 
-        await expect(valueStream.future).rejects.toThrow();
+        await expect(valueStream.promise).rejects.toThrow();
     });
 
     test("timeout on slow streams", async () => {
@@ -208,7 +208,7 @@ describe("Error Handling Tests", () => {
         // Should timeout
         await expect(
             Promise.race([
-                valueStream.future,
+                valueStream.promise,
                 new Promise((_, reject) =>
                     setTimeout(() => reject(new Error("Timeout")), 500)
                 ),
@@ -227,7 +227,7 @@ describe("Edge Cases", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const rootMap = await parser.getMapProperty("").future;
+        const rootMap = await parser.getMapProperty("").promise;
 
         expect(rootMap).toEqual({});
     });
@@ -243,7 +243,7 @@ describe("Edge Cases", () => {
         const parser = new JsonStreamParser(stream);
         const itemsStream = parser.getListProperty("items");
 
-        const items = await itemsStream.future;
+        const items = await itemsStream.promise;
         expect(items).toEqual([]);
     });
 
@@ -258,7 +258,7 @@ describe("Edge Cases", () => {
         const parser = new JsonStreamParser(stream);
         const aStream = parser.getNumberProperty("a");
 
-        const result = await aStream.future;
+        const result = await aStream.promise;
         expect(result).toBe(1);
     });
 
@@ -273,7 +273,7 @@ describe("Edge Cases", () => {
         const parser = new JsonStreamParser(stream);
         const name = parser.getStringProperty("name");
 
-        const result = await name.future;
+        const result = await name.promise;
         expect(result).toBe("Alice");
     });
 
@@ -288,7 +288,7 @@ describe("Edge Cases", () => {
         const parser = new JsonStreamParser(stream);
         const name = parser.getStringProperty("name");
 
-        const result = await name.future;
+        const result = await name.promise;
         expect(result).toBe("Alice");
     });
 
@@ -304,7 +304,7 @@ describe("Edge Cases", () => {
         const parser = new JsonStreamParser(stream);
         const name = parser.getStringProperty("name");
 
-        const result = await name.future;
+        const result = await name.promise;
         expect(result).toBe("Alice");
     });
 });

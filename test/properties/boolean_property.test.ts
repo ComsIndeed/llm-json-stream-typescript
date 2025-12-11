@@ -20,12 +20,12 @@ describe("Boolean Property Tests", () => {
 
         // Collect stream events
         const streamEvents: boolean[] = [];
-        activeStream.stream.on("data", (value: boolean) => {
+        activeStream.stream?.on("data", (value: boolean) => {
             streamEvents.push(value);
         });
 
         // Wait for the future to resolve
-        const finalValue = await activeStream.future;
+        const finalValue = await activeStream.promise;
 
         // Should emit the boolean value once when complete
         expect(streamEvents).toEqual([true]);
@@ -44,11 +44,11 @@ describe("Boolean Property Tests", () => {
         const enabledStream = parser.getBooleanProperty("enabled");
 
         const streamEvents: boolean[] = [];
-        enabledStream.stream.on("data", (value: boolean) => {
+        enabledStream.stream?.on("data", (value: boolean) => {
             streamEvents.push(value);
         });
 
-        const finalValue = await enabledStream.future;
+        const finalValue = await enabledStream.promise;
 
         expect(streamEvents).toEqual([false]);
         expect(finalValue).toBe(false);
@@ -65,7 +65,7 @@ describe("Boolean Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const verifiedStream = parser.getBooleanProperty("user.verified");
 
-        const finalValue = await verifiedStream.future;
+        const finalValue = await verifiedStream.promise;
         expect(finalValue).toBe(true);
     });
 
@@ -83,9 +83,9 @@ describe("Boolean Property Tests", () => {
         const flag2 = parser.getBooleanProperty("flags[2]");
 
         const [val0, val1, val2] = await Promise.all([
-            flag0.future,
-            flag1.future,
-            flag2.future,
+            flag0.promise,
+            flag1.promise,
+            flag2.promise,
         ]);
 
         expect(val0).toBe(true);
@@ -107,9 +107,9 @@ describe("Boolean Property Tests", () => {
         const verified = parser.getBooleanProperty("verified");
 
         const [activeVal, enabledVal, verifiedVal] = await Promise.all([
-            active.future,
-            enabled.future,
-            verified.future,
+            active.promise,
+            enabled.promise,
+            verified.promise,
         ]);
 
         expect(activeVal).toBe(true);

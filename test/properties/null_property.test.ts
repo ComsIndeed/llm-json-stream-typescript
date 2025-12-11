@@ -19,11 +19,11 @@ describe("Null Property Tests", () => {
         const valueStream = parser.getNullProperty("value");
 
         const streamEvents: null[] = [];
-        valueStream.stream.on("data", (value: null) => {
+        valueStream.stream?.on("data", (value: null) => {
             streamEvents.push(value);
         });
 
-        const finalValue = await valueStream.future;
+        const finalValue = await valueStream.promise;
 
         expect(streamEvents).toEqual([null]);
         expect(finalValue).toBeNull();
@@ -40,7 +40,7 @@ describe("Null Property Tests", () => {
         const parser = new JsonStreamParser(stream);
         const avatarStream = parser.getNullProperty("user.avatar");
 
-        const finalValue = await avatarStream.future;
+        const finalValue = await avatarStream.promise;
         expect(finalValue).toBeNull();
     });
 
@@ -58,9 +58,9 @@ describe("Null Property Tests", () => {
         const item2 = parser.getNullProperty("items[2]");
 
         const [val0, val1, val2] = await Promise.all([
-            item0.future,
-            item1.future,
-            item2.future,
+            item0.promise,
+            item1.promise,
+            item2.promise,
         ]);
 
         expect(val0).toBeNull();
@@ -82,9 +82,9 @@ describe("Null Property Tests", () => {
         const c = parser.getNullProperty("c");
 
         const [aVal, bVal, cVal] = await Promise.all([
-            a.future,
-            b.future,
-            c.future,
+            a.promise,
+            b.promise,
+            c.promise,
         ]);
 
         expect(aVal).toBeNull();

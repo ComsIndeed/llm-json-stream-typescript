@@ -23,14 +23,19 @@
  *
  * const parser = new JsonStreamParser(streamFromLLM);
  *
- * // Subscribe to specific properties
+ * // Modern async iterator pattern (recommended)
  * const nameStream = parser.getStringProperty('user.name');
- * nameStream.stream.on('data', (chunk) => {
+ * for await (const chunk of nameStream) {
+ *   console.log('Name chunk:', chunk);
+ * }
+ *
+ * // Legacy event emitter pattern (still supported)
+ * nameStream.stream?.on('data', (chunk) => {
  *   console.log('Name chunk:', chunk);
  * });
  *
  * // Wait for complete values
- * const age = await parser.getNumberProperty('user.age').future;
+ * const age = await parser.getNumberProperty('user.age').promise;
  * console.log('Age:', age);
  * ```
  */
@@ -43,13 +48,9 @@ export {
 
 // Property streams (public API)
 export {
-    BooleanPropertyStream,
     ListPropertyStream,
     MapPropertyStream,
-    NullPropertyStream,
-    NumberPropertyStream,
     PropertyStream,
-    StringPropertyStream,
 } from "./classes/property_stream.js";
 
 // Utilities (for testing and advanced usage)

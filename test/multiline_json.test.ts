@@ -18,7 +18,7 @@ describe("Multiline JSON Tests", () => {
         const parser = new JsonStreamParser(stream);
         const textStream = parser.getStringProperty("text");
 
-        const result = await textStream.future;
+        const result = await textStream.promise;
         expect(result).toBe("Line 1\nLine 2\nLine 3");
     });
 
@@ -37,7 +37,7 @@ describe("Multiline JSON Tests", () => {
         const name = parser.getStringProperty("name");
         const age = parser.getNumberProperty("age");
 
-        const [nameVal, ageVal] = await Promise.all([name.future, age.future]);
+        const [nameVal, ageVal] = await Promise.all([name.promise, age.promise]);
 
         expect(nameVal).toBe("Alice");
         expect(ageVal).toBe(30);
@@ -55,7 +55,7 @@ describe("Multiline JSON Tests", () => {
         const a = parser.getNumberProperty("a");
         const b = parser.getNumberProperty("b");
 
-        const [aVal, bVal] = await Promise.all([a.future, b.future]);
+        const [aVal, bVal] = await Promise.all([a.promise, b.promise]);
 
         expect(aVal).toBe(1);
         expect(bVal).toBe(2);
@@ -85,8 +85,8 @@ describe("Multiline JSON Tests", () => {
         const parser1 = new JsonStreamParser(stream1);
         const parser2 = new JsonStreamParser(stream2);
 
-        const name1 = await parser1.getStringProperty("user.name").future;
-        const name2 = await parser2.getStringProperty("user.name").future;
+        const name1 = await parser1.getStringProperty("user.name").promise;
+        const name2 = await parser2.getStringProperty("user.name").promise;
 
         expect(name1).toBe(name2);
         expect(name1).toBe("Bob");
@@ -103,7 +103,7 @@ describe("Multiline JSON Tests", () => {
         const parser = new JsonStreamParser(stream);
         const poemStream = parser.getStringProperty("poem");
 
-        const result = await poemStream.future;
+        const result = await poemStream.promise;
         expect(result).toBe("Roses are red\nViolets are blue");
     });
 });

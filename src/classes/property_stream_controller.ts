@@ -6,13 +6,9 @@
 import { EventEmitter } from "events";
 import { JsonStreamParserController } from "./json_stream_parser.js";
 import {
-    BooleanPropertyStream,
     ListPropertyStream,
     MapPropertyStream,
-    NullPropertyStream,
-    NumberPropertyStream,
     PropertyStream,
-    StringPropertyStream,
 } from "./property_stream.js";
 
 /**
@@ -70,7 +66,7 @@ export abstract class PropertyStreamController<T> {
  */
 export class StringPropertyStreamController
     extends PropertyStreamController<string> {
-    readonly propertyStream: StringPropertyStream;
+    readonly propertyStream: PropertyStream<string>;
     private buffer = "";
     private streamEmitter = new EventEmitter();
 
@@ -79,10 +75,10 @@ export class StringPropertyStreamController
         propertyPath: string,
     ) {
         super(parserController, propertyPath);
-        this.propertyStream = new StringPropertyStream(
+        this.propertyStream = new PropertyStream<string>(
             this.completer.promise,
-            this.streamEmitter,
             parserController,
+            this.streamEmitter,
         );
     }
 
@@ -100,7 +96,7 @@ export class StringPropertyStreamController
  */
 export class NumberPropertyStreamController
     extends PropertyStreamController<number> {
-    readonly propertyStream: NumberPropertyStream;
+    readonly propertyStream: PropertyStream<number>;
     private streamEmitter = new EventEmitter();
 
     constructor(
@@ -108,10 +104,10 @@ export class NumberPropertyStreamController
         propertyPath: string,
     ) {
         super(parserController, propertyPath);
-        this.propertyStream = new NumberPropertyStream(
+        this.propertyStream = new PropertyStream<number>(
             this.completer.promise,
-            this.streamEmitter,
             parserController,
+            this.streamEmitter,
         );
     }
 }
@@ -121,7 +117,7 @@ export class NumberPropertyStreamController
  */
 export class BooleanPropertyStreamController
     extends PropertyStreamController<boolean> {
-    readonly propertyStream: BooleanPropertyStream;
+    readonly propertyStream: PropertyStream<boolean>;
     private streamEmitter = new EventEmitter();
 
     constructor(
@@ -129,10 +125,10 @@ export class BooleanPropertyStreamController
         propertyPath: string,
     ) {
         super(parserController, propertyPath);
-        this.propertyStream = new BooleanPropertyStream(
+        this.propertyStream = new PropertyStream<boolean>(
             this.completer.promise,
-            this.streamEmitter,
             parserController,
+            this.streamEmitter,
         );
     }
 }
@@ -142,7 +138,7 @@ export class BooleanPropertyStreamController
  */
 export class NullPropertyStreamController
     extends PropertyStreamController<null> {
-    readonly propertyStream: NullPropertyStream;
+    readonly propertyStream: PropertyStream<null>;
     private streamEmitter = new EventEmitter();
 
     constructor(
@@ -150,10 +146,10 @@ export class NullPropertyStreamController
         propertyPath: string,
     ) {
         super(parserController, propertyPath);
-        this.propertyStream = new NullPropertyStream(
+        this.propertyStream = new PropertyStream<null>(
             this.completer.promise,
-            this.streamEmitter,
             parserController,
+            this.streamEmitter,
         );
     }
 }

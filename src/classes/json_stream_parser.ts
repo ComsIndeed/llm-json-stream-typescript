@@ -10,12 +10,9 @@
 import { Readable } from "stream";
 import { PropertyStreamController } from "./property_stream_controller.js";
 import {
-    BooleanPropertyStream,
     ListPropertyStream,
     MapPropertyStream,
-    NullPropertyStream,
-    NumberPropertyStream,
-    StringPropertyStream,
+    PropertyStream,
 } from "./property_stream.js";
 
 /**
@@ -94,7 +91,7 @@ export class JsonStreamParser {
     /**
      * Gets a stream for a string property at the specified propertyPath.
      */
-    getStringProperty(propertyPath: string): StringPropertyStream {
+    getStringProperty(propertyPath: string): PropertyStream<string> {
         // TODO: Implementation
         throw new Error("Not implemented");
     }
@@ -102,7 +99,7 @@ export class JsonStreamParser {
     /**
      * Gets a stream for a number property at the specified propertyPath.
      */
-    getNumberProperty(propertyPath: string): NumberPropertyStream {
+    getNumberProperty(propertyPath: string): PropertyStream<number> {
         // TODO: Implementation
         throw new Error("Not implemented");
     }
@@ -110,7 +107,7 @@ export class JsonStreamParser {
     /**
      * Gets a stream for a boolean property at the specified propertyPath.
      */
-    getBooleanProperty(propertyPath: string): BooleanPropertyStream {
+    getBooleanProperty(propertyPath: string): PropertyStream<boolean> {
         // TODO: Implementation
         throw new Error("Not implemented");
     }
@@ -118,7 +115,7 @@ export class JsonStreamParser {
     /**
      * Gets a stream for a null property at the specified propertyPath.
      */
-    getNullProperty(propertyPath: string): NullPropertyStream {
+    getNullProperty(propertyPath: string): PropertyStream<null> {
         // TODO: Implementation
         throw new Error("Not implemented");
     }

@@ -20,12 +20,12 @@ describe("Comprehensive Value Retrieval Tests", () => {
         const parser = new JsonStreamParser(stream);
 
         const [name, age, active, data, tags, meta] = await Promise.all([
-            parser.getStringProperty("name").future,
-            parser.getNumberProperty("age").future,
-            parser.getBooleanProperty("active").future,
-            parser.getNullProperty("data").future,
-            parser.getListProperty("tags").future,
-            parser.getMapProperty("meta").future,
+            parser.getStringProperty("name").promise,
+            parser.getNumberProperty("age").promise,
+            parser.getBooleanProperty("active").promise,
+            parser.getNullProperty("data").promise,
+            parser.getListProperty("tags").promise,
+            parser.getMapProperty("meta").promise,
         ]);
 
         expect(name).toBe("Alice");
@@ -47,9 +47,9 @@ describe("Comprehensive Value Retrieval Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const name = await parser.getStringProperty("user.profile.name").future;
+        const name = await parser.getStringProperty("user.profile.name").promise;
         const email = await parser.getStringProperty("user.profile.email")
-            .future;
+            .promise;
 
         expect(name).toBe("Bob");
         expect(email).toBe("bob@test.com");
@@ -67,9 +67,9 @@ describe("Comprehensive Value Retrieval Tests", () => {
         const parser = new JsonStreamParser(stream);
 
         const [item0, item1, item2] = await Promise.all([
-            parser.getStringProperty("items[0]").future,
-            parser.getStringProperty("items[1]").future,
-            parser.getStringProperty("items[2]").future,
+            parser.getStringProperty("items[0]").promise,
+            parser.getStringProperty("items[1]").promise,
+            parser.getStringProperty("items[2]").promise,
         ]);
 
         expect(item0).toBe("first");
@@ -87,7 +87,7 @@ describe("Comprehensive Value Retrieval Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const value = await parser.getStringProperty("a.b.c.d.e").future;
+        const value = await parser.getStringProperty("a.b.c.d.e").promise;
 
         expect(value).toBe("deep");
     });
@@ -104,11 +104,11 @@ describe("Comprehensive Value Retrieval Tests", () => {
         const parser = new JsonStreamParser(stream);
 
         const [a, b, c, d, e] = await Promise.all([
-            parser.getNumberProperty("a").future,
-            parser.getNumberProperty("b").future,
-            parser.getNumberProperty("c").future,
-            parser.getNumberProperty("d").future,
-            parser.getNumberProperty("e").future,
+            parser.getNumberProperty("a").promise,
+            parser.getNumberProperty("b").promise,
+            parser.getNumberProperty("c").promise,
+            parser.getNumberProperty("d").promise,
+            parser.getNumberProperty("e").promise,
         ]);
 
         expect([a, b, c, d, e]).toEqual([1, 2, 3, 4, 5]);
@@ -127,7 +127,7 @@ describe("Comprehensive Value Retrieval Tests", () => {
         const valueStream = parser.getNumberProperty("value");
 
         // Access property before stream has delivered value
-        const value = await valueStream.future;
+        const value = await valueStream.promise;
         expect(value).toBe(42);
     });
 
@@ -143,11 +143,11 @@ describe("Comprehensive Value Retrieval Tests", () => {
         const parser = new JsonStreamParser(stream);
 
         // Start accessing first property
-        const firstPromise = parser.getNumberProperty("first").future;
+        const firstPromise = parser.getNumberProperty("first").promise;
 
         // Wait a bit, then access second
         await new Promise((resolve) => setTimeout(resolve, 30));
-        const secondPromise = parser.getNumberProperty("second").future;
+        const secondPromise = parser.getNumberProperty("second").promise;
 
         const [first, second] = await Promise.all([
             firstPromise,
@@ -174,7 +174,7 @@ describe("Comprehensive Value Retrieval Tests", () => {
 
         // Access property after stream has completed
         const valueStream = parser.getNumberProperty("value");
-        const value = await valueStream.future;
+        const value = await valueStream.promise;
 
         expect(value).toBe(42);
     });

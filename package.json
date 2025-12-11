@@ -7,8 +7,9 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
-    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
+    "test": "bun test",
+    "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "bun test --watch"
   },
   "keywords": [
     "json",
