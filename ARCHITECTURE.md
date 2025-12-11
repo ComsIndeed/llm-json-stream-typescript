@@ -178,36 +178,34 @@ test/
 ### Differences from Dart Version
 
 **TypeScript Adaptations:**
-- `Stream<T>` → `EventEmitter` with 'data' events
+- `Stream<T>` → `AsyncIterable<T>` with async iterators
 - `Future<T>` → `Promise<T>`
 - Dart mixins → TypeScript factory functions
 - `late` keyword → TypeScript `!` or constructor initialization
 
-**Node.js Streams:**
-- Using `Readable` from Node.js `stream` module
-- EventEmitter for reactive emissions
+**Cross-Platform Streaming:**
+- Using **async iterables** (`AsyncIterable<string>`) exclusively
+- No Node.js `stream` module dependencies
+- Works on Node.js, Deno, Bun, browsers, edge runtimes, etc.
 
-## Usage Example (Planned)
+## Usage Example
 
 ```typescript
 import { JsonStreamParser } from 'llm_json_stream';
-import { Readable } from 'stream';
 
-// Create stream from LLM
-const llmStream: Readable = getLLMResponse();
+// Create parser with any AsyncIterable<string>
+// Works across all JavaScript runtimes!
+const parser = new JsonStreamParser(llmAsyncIterable);
 
-// Create parser
-const parser = new JsonStreamParser(llmStream);
-
-// Get string property with streaming
+// Get string property with streaming via async iteration
 const title = parser.getStringProperty('title');
-title.stream.on('data', (chunk: string) => {
+for await (const chunk of title) {
   console.log('Title chunk:', chunk);
   // Update UI incrementally
-});
+}
 
 // Get complete value
-const age = await parser.getNumberProperty('age').future;
+const age = await parser.getNumberProperty('age').promise;
 console.log('Age:', age);
 
 // React to array elements
@@ -218,7 +216,7 @@ items.onElement((element, index) => {
 });
 
 // Nested property access
-const name = await parser.getStringProperty('user.profile.name').future;
+const name = await parser.getStringProperty('user.profile.name').promise;
 
 // Cleanup
 await parser.dispose();

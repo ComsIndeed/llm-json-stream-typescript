@@ -6,7 +6,6 @@
  * It's specifically designed for handling Large Language Model (LLM) streaming
  * responses that output structured JSON data.
  */
-import { Readable } from "stream";
 import { BooleanPropertyStreamController, ListPropertyStreamController, MapPropertyStreamController, NullPropertyStreamController, NumberPropertyStreamController, PropertyStreamController, StringPropertyStreamController, } from "./property_stream_controller.js";
 import { BooleanPropertyStream, ListPropertyStream, MapPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream, } from "./property_stream.js";
 import { PropertyDelegate } from "./property_delegates/property_delegate.js";
@@ -45,34 +44,44 @@ export class JsonStreamParserController {
  */
 export class JsonStreamParser {
     controller;
-    streamSubscription;
+    streamAbortController = null;
     propertyControllers = new Map();
     disposed = false;
     rootDelegate = null;
     closeOnRootComplete;
+    consumeStreamPromise = null;
     constructor(stream, options) {
         this.closeOnRootComplete = options?.closeOnRootComplete ?? true;
         this.controller = new JsonStreamParserController(this.addPropertyChunk.bind(this), this.getControllerForPath.bind(this), this.getPropertyStreamForPath.bind(this), this.completePropertyAtPath.bind(this));
-        // Listen to stream
-        stream.on("data", (chunk) => {
-            if (!this.disposed) {
-                const text = typeof chunk === "string"
-                    ? chunk
-                    : chunk.toString("utf8");
-                this.parseChunk(text);
+        // Create an abort controller to stop the stream consumption
+        this.streamAbortController = new AbortController();
+        // Start consuming the stream
+        this.consumeStreamPromise = this.consumeStream(stream);
+    }
+    async consumeStream(stream) {
+        try {
+            for await (const chunk of stream) {
+                if (this.disposed || this.streamAbortController?.signal.aborted) {
+                    break;
+                }
+                this.parseChunk(chunk);
+                // Check if we should stop consuming after parsing
+                if (this.closeOnRootComplete &&
+                    this.rootDelegate &&
+                    this.rootDelegate.done) {
+                    this.streamAbortController?.abort();
+                    break;
+                }
             }
-        });
-        stream.on("end", () => {
-            // Stream ended - complete any remaining property controllers
+            // Stream ended normally
             this.handleStreamEnd();
-        });
-        stream.on("error", (error) => {
-            // Reject all pending futures
+        }
+        catch (error) {
+            // Stream error - reject all pending controllers
             for (const controller of this.propertyControllers.values()) {
-                controller.completeError(error);
+                controller.completeError(error instanceof Error ? error : new Error(String(error)));
             }
-        });
-        this.streamSubscription = stream;
+        }
     }
     /**
      * Gets a stream for a string property at the specified propertyPath.
@@ -178,10 +187,18 @@ export class JsonStreamParser {
             return;
         }
         this.disposed = true;
-        // Clean up stream subscription
-        if (this.streamSubscription) {
-            this.streamSubscription.destroy();
-            this.streamSubscription.removeAllListeners();
+        // Abort the stream consumption
+        if (this.streamAbortController) {
+            this.streamAbortController.abort();
+        }
+        // Wait for stream consumption to complete
+        if (this.consumeStreamPromise) {
+            try {
+                await this.consumeStreamPromise;
+            }
+            catch {
+                // Ignore errors during cleanup
+            }
         }
         // Close all property controllers
         for (const controller of this.propertyControllers.values()) {
@@ -203,7 +220,7 @@ export class JsonStreamParser {
         if (this.closeOnRootComplete &&
             this.rootDelegate &&
             this.rootDelegate.done) {
-            this.streamSubscription.destroy();
+            this.streamAbortController?.abort();
             return;
         }
         try {
@@ -212,7 +229,7 @@ export class JsonStreamParser {
                 if (this.closeOnRootComplete &&
                     this.rootDelegate &&
                     this.rootDelegate.done) {
-                    this.streamSubscription.destroy();
+                    this.streamAbortController?.abort();
                     return;
                 }
                 if (this.rootDelegate !== null) {
@@ -238,7 +255,7 @@ export class JsonStreamParser {
             if (this.closeOnRootComplete &&
                 this.rootDelegate &&
                 this.rootDelegate.done) {
-                this.streamSubscription.destroy();
+                this.streamAbortController?.abort();
             }
         }
         catch (e) {

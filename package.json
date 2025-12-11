@@ -1,7 +1,7 @@
 {
-  "name": "llm_json_stream",
+  "name": "llm-json-stream",
   "version": "0.1.0",
-  "description": "A streaming JSON parser for TypeScript optimized for LLM responses",
+  "description": "Cross-platform streaming JSON parser for TypeScript optimized for LLM responses. Works on Node.js, Deno, Bun, browsers, and edge runtimes.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -17,7 +17,14 @@
     "parser",
     "llm",
     "ai",
-    "reactive"
+    "reactive",
+    "async-iterable",
+    "cross-platform",
+    "deno",
+    "bun",
+    "nodejs",
+    "browser",
+    "edge-runtime"
   ],
   "repository": {
     "type": "git",

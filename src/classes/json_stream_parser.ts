@@ -7,7 +7,6 @@
  * responses that output structured JSON data.
  */
 
-import { Readable } from "stream";
 import {
     BooleanPropertyStreamController,
     ListPropertyStreamController,
@@ -83,14 +82,18 @@ export class JsonStreamParserController {
  */
 export class JsonStreamParser {
     private controller!: JsonStreamParserController;
-    private streamSubscription: Readable;
+    private streamAbortController: AbortController | null = null;
     private propertyControllers: Map<string, PropertyStreamController<any>> =
         new Map();
     private disposed = false;
     private rootDelegate: PropertyDelegate | null = null;
     private closeOnRootComplete: boolean;
+    private consumeStreamPromise: Promise<void> | null = null;
 
-    constructor(stream: Readable, options?: { closeOnRootComplete?: boolean }) {
+    constructor(
+        stream: AsyncIterable<string>,
+        options?: { closeOnRootComplete?: boolean },
+    ) {
         this.closeOnRootComplete = options?.closeOnRootComplete ?? true;
 
         this.controller = new JsonStreamParserController(
@@ -100,29 +103,45 @@ export class JsonStreamParser {
             this.completePropertyAtPath.bind(this),
         );
 
-        // Listen to stream
-        stream.on("data", (chunk: Buffer | string) => {
-            if (!this.disposed) {
-                const text = typeof chunk === "string"
-                    ? chunk
-                    : chunk.toString("utf8");
-                this.parseChunk(text);
-            }
-        });
+        // Create an abort controller to stop the stream consumption
+        this.streamAbortController = new AbortController();
 
-        stream.on("end", () => {
-            // Stream ended - complete any remaining property controllers
+        // Start consuming the stream
+        this.consumeStreamPromise = this.consumeStream(stream);
+    }
+
+    private async consumeStream(stream: AsyncIterable<string>): Promise<void> {
+        try {
+            for await (const chunk of stream) {
+                if (
+                    this.disposed || this.streamAbortController?.signal.aborted
+                ) {
+                    break;
+                }
+
+                this.parseChunk(chunk);
+
+                // Check if we should stop consuming after parsing
+                if (
+                    this.closeOnRootComplete &&
+                    this.rootDelegate &&
+                    this.rootDelegate.done
+                ) {
+                    this.streamAbortController?.abort();
+                    break;
+                }
+            }
+
+            // Stream ended normally
             this.handleStreamEnd();
-        });
-
-        stream.on("error", (error: Error) => {
-            // Reject all pending futures
+        } catch (error) {
+            // Stream error - reject all pending controllers
             for (const controller of this.propertyControllers.values()) {
-                controller.completeError(error);
+                controller.completeError(
+                    error instanceof Error ? error : new Error(String(error)),
+                );
             }
-        });
-
-        this.streamSubscription = stream;
+        }
     }
 
     /**
@@ -273,10 +292,18 @@ export class JsonStreamParser {
 
         this.disposed = true;
 
-        // Clean up stream subscription
-        if (this.streamSubscription) {
-            this.streamSubscription.destroy();
-            this.streamSubscription.removeAllListeners();
+        // Abort the stream consumption
+        if (this.streamAbortController) {
+            this.streamAbortController.abort();
+        }
+
+        // Wait for stream consumption to complete
+        if (this.consumeStreamPromise) {
+            try {
+                await this.consumeStreamPromise;
+            } catch {
+                // Ignore errors during cleanup
+            }
         }
 
         // Close all property controllers
@@ -304,7 +331,7 @@ export class JsonStreamParser {
             this.rootDelegate &&
             this.rootDelegate.done
         ) {
-            this.streamSubscription.destroy();
+            this.streamAbortController?.abort();
             return;
         }
 
@@ -316,7 +343,7 @@ export class JsonStreamParser {
                     this.rootDelegate &&
                     this.rootDelegate.done
                 ) {
-                    this.streamSubscription.destroy();
+                    this.streamAbortController?.abort();
                     return;
                 }
 
@@ -354,7 +381,7 @@ export class JsonStreamParser {
                 this.rootDelegate &&
                 this.rootDelegate.done
             ) {
-                this.streamSubscription.destroy();
+                this.streamAbortController?.abort();
             }
         } catch (e) {
             // Parsing error - already handled by completing specific controller with error

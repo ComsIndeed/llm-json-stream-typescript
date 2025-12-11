@@ -6,7 +6,6 @@
  * It's specifically designed for handling Large Language Model (LLM) streaming
  * responses that output structured JSON data.
  */
-import { Readable } from "stream";
 import { PropertyStreamController } from "./property_stream_controller.js";
 import { BooleanPropertyStream, ListPropertyStream, MapPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream } from "./property_stream.js";
 /**
@@ -35,14 +34,16 @@ export declare class JsonStreamParserController {
  */
 export declare class JsonStreamParser {
     private controller;
-    private streamSubscription;
+    private streamAbortController;
     private propertyControllers;
     private disposed;
     private rootDelegate;
     private closeOnRootComplete;
-    constructor(stream: Readable, options?: {
+    private consumeStreamPromise;
+    constructor(stream: AsyncIterable<string>, options?: {
         closeOnRootComplete?: boolean;
     });
+    private consumeStream;
     /**
      * Gets a stream for a string property at the specified propertyPath.
      */

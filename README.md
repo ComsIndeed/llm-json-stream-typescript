@@ -76,6 +76,8 @@ npm install llm_json_stream
 ```typescript
 import { JsonStreamParser } from 'llm_json_stream';
 
+// Works with any AsyncIterable<string>
+// Compatible with: Node.js, Deno, Bun, browsers, Cloudflare Workers, etc.
 const parser = new JsonStreamParser(llmResponseStream);
 
 // Stream text as it types using async iteration
@@ -89,6 +91,19 @@ const title = await parser.getStringProperty('title').promise;
 // Clean up when done
 await parser.dispose();
 ```
+
+### ✨ Cross-Platform Compatibility
+
+This library uses **only async iterables** (`AsyncIterable<string>`), making it 100% platform-agnostic:
+
+- ✅ **Node.js** - All versions with async iterator support
+- ✅ **Deno** - Native compatibility
+- ✅ **Bun** - Native compatibility  
+- ✅ **Browsers** - Works with native Web Streams via adapters
+- ✅ **Cloudflare Workers** - Full support
+- ✅ **Edge runtimes** - Compatible with all edge computing platforms
+
+No Node.js `stream` module required! This avoids the compatibility issues that plague Node.js-specific libraries.
 
 ---
 
@@ -403,7 +418,6 @@ Battle-tested with comprehensive test coverage. Handles real-world edge cases:
 
 ```typescript
 import OpenAI from 'openai';
-import { Readable } from 'stream';
 import { JsonStreamParser } from 'llm_json_stream';
 
 const openai = new OpenAI();
@@ -414,20 +428,15 @@ const response = await openai.chat.completions.create({
   stream: true,
 });
 
-// Convert OpenAI stream to Node.js Readable
-const readable = new Readable({
-  read() {}
-});
-
-(async () => {
+// Create an async generator that yields text chunks
+async function* openaiStream() {
   for await (const chunk of response) {
     const content = chunk.choices[0]?.delta?.content || '';
-    readable.push(content);
+    if (content) yield content;
   }
-  readable.push(null);
-})();
+}
 
-const parser = new JsonStreamParser(readable);
+const parser = new JsonStreamParser(openaiStream());
 ```
 
 </details>
@@ -437,7 +446,6 @@ const parser = new JsonStreamParser(readable);
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import { Readable } from 'stream';
 import { JsonStreamParser } from 'llm_json_stream';
 
 const anthropic = new Anthropic();
@@ -448,12 +456,16 @@ const stream = await anthropic.messages.stream({
   messages: [{ role: 'user', content: 'Generate a JSON blog post' }],
 });
 
-const readable = new Readable({ read() {} });
+// Create an async generator from Claude's event emitter
+async function* claudeStream() {
+  for await (const chunk of stream) {
+    if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+      yield chunk.delta.text;
+    }
+  }
+}
 
-stream.on('text', (text) => readable.push(text));
-stream.on('end', () => readable.push(null));
-
-const parser = new JsonStreamParser(readable);
+const parser = new JsonStreamParser(claudeStream());
 ```
 
 </details>
@@ -463,7 +475,6 @@ const parser = new JsonStreamParser(readable);
 
 ```typescript
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Readable } from 'stream';
 import { JsonStreamParser } from 'llm_json_stream';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
@@ -471,16 +482,15 @@ const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
 const response = await model.generateContentStream('Generate a JSON blog post');
 
-const readable = new Readable({ read() {} });
-
-(async () => {
+// Create an async generator that yields text chunks
+async function* geminiStream() {
   for await (const chunk of response.stream) {
-    readable.push(chunk.text());
+    const text = chunk.text();
+    if (text) yield text;
   }
-  readable.push(null);
-})();
+}
 
-const parser = new JsonStreamParser(readable);
+const parser = new JsonStreamParser(geminiStream());
 ```
 
 </details>

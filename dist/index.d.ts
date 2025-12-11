@@ -38,6 +38,6 @@ export { JsonStreamParser, JsonStreamParserController, } from "./classes/json_st
 export { BooleanPropertyStream, ListPropertyStream, MapPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream, } from "./classes/property_stream.js";
 export type { AsyncIteratorController } from "./classes/property_stream.js";
 export { createAsyncIterator } from "./classes/property_stream.js";
-export { streamTextInChunks, streamTextInChunksGenerator, } from "./utilities/stream_text_in_chunks.js";
+export { streamTextInChunks } from "./utilities/stream_text_in_chunks.js";
 export type { StreamTextOptions } from "./utilities/stream_text_in_chunks.js";
 //# sourceMappingURL=index.d.ts.map
