@@ -66,8 +66,8 @@ tmp/
 *.generated.ts
 *.generated.js
 
-# References folder (Dart reference only)
-references/
+# # References folder (Dart reference only)
+# references/
 
 # Optional npm cache directory
 .npm

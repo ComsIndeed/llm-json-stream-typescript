@@ -1,0 +1,54 @@
+/// Utility function to stream text in chunks with configurable timing.
+///
+/// This is useful for testing the parser with simulated streaming data
+/// or for processing large text files in chunks.
+///
+/// ## Parameters
+///
+/// - [text] - The complete text to stream
+/// - [chunkSize] - Number of characters per chunk
+/// - [interval] - Delay between emitting chunks
+///
+/// ## Example
+///
+/// ```dart
+/// final stream = streamTextInChunks(
+///   text: '{"name": "John", "age": 30}',
+///   chunkSize: 5,
+///   interval: Duration(milliseconds: 50),
+/// );
+///
+/// final parser = JsonStreamParser(stream);
+/// final name = await parser.getStringProperty('name').future;
+/// print(name); // "John"
+/// ```
+Stream<String> streamTextInChunks({
+  required String text,
+  required int chunkSize,
+  required Duration interval,
+}) async* {
+  // Calculate the number of chunks we'll need.
+  int totalLength = text.length;
+  int numChunks = (totalLength / chunkSize).ceil();
+
+  // Loop through each chunk index.
+  for (int i = 0; i < numChunks; i++) {
+    // Determine the start and end indices for the current chunk.
+    int start = i * chunkSize;
+    // The end is either the next chunk's start or the total length,
+    // whichever comes first (to handle the final, possibly smaller chunk).
+    int end =
+        (start + chunkSize < totalLength) ? start + chunkSize : totalLength;
+
+    // Get the substring for the current chunk.
+    String chunk = text.substring(start, end);
+
+    // 'yield' is the magic word for async* functions. It adds the value
+    // to the stream and pauses until the next iteration.
+    yield chunk;
+
+    // Wait for the specified interval before yielding the next chunk.
+    // This is what makes it "stream" over time.
+    await Future.delayed(interval);
+  }
+}
