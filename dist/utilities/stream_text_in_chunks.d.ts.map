@@ -1,1 +1,0 @@
-{"version":3,"file":"stream_text_in_chunks.d.ts","sourceRoot":"","sources":["../../src/utilities/stream_text_in_chunks.ts"],"names":[],"mappings":"AAAA;;;GAGG;AAEH,MAAM,WAAW,iBAAiB;IAC9B,IAAI,EAAE,MAAM,CAAC;IACb,SAAS,EAAE,MAAM,CAAC;IAClB,QAAQ,EAAE,MAAM,CAAC;CACpB;AAED;;;;GAIG;AACH,wBAAuB,kBAAkB,CACrC,OAAO,EAAE,iBAAiB,GAC3B,cAAc,CAAC,MAAM,EAAE,IAAI,EAAE,OAAO,CAAC,CAavC"}
