@@ -4,7 +4,7 @@
 
 **The streaming JSON parser for AI applications**
 
-[![npm package](https://img.shields.io/npm/v/llm_json_stream.svg)](https://www.npmjs.com/package/llm_json_stream)
+[![npm package](https://img.shields.io/npm/v/llm_json_stream.svg)](https://www.npmjs.com/package/llm-json-stream)
 [![TypeScript](https://img.shields.io/badge/TypeScript-%3E%3D5.0-blue)]()
 [![License: MIT](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
 
