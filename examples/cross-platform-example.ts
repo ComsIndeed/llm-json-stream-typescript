@@ -48,7 +48,7 @@ async function demonstrateCrossPlatform() {
 
     // Stream array elements as they arrive
     console.log("🏷️  Tags:");
-    const tagsStream = parser.getListProperty("tags");
+    const tagsStream = parser.getArrayProperty("tags");
     tagsStream.onElement(async (element, index) => {
         const tag = await (element as any).promise;
         console.log(`   [${index}] ${tag}`);
@@ -73,3 +73,4 @@ async function demonstrateCrossPlatform() {
 
 // Run the example
 demonstrateCrossPlatform().catch(console.error);
+

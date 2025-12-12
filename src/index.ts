@@ -43,11 +43,11 @@ export {
 
 // Property streams (public API)
 export {
+    ArrayPropertyStream,
     BooleanPropertyStream,
-    ListPropertyStream,
-    MapPropertyStream,
     NullPropertyStream,
     NumberPropertyStream,
+    ObjectPropertyStream,
     PropertyStream,
     StringPropertyStream,
 } from "./classes/property_stream.js";
@@ -59,3 +59,9 @@ export { createAsyncIterator } from "./classes/property_stream.js";
 // Utilities (for testing and advanced usage)
 export { streamTextInChunks } from "./utilities/stream_text_in_chunks.js";
 export type { StreamTextOptions } from "./utilities/stream_text_in_chunks.js";
+
+// Backward compatibility aliases
+export {
+    ArrayPropertyStream as ListPropertyStream,
+    ObjectPropertyStream as MapPropertyStream,
+} from "./classes/property_stream.js";

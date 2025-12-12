@@ -137,7 +137,7 @@ describe("Complex JSON Structures", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const itemsStream = parser.getListProperty(
+        const itemsStream = parser.getArrayProperty(
             "level1.level2.level3.items",
         );
 
@@ -168,8 +168,8 @@ describe("Complex JSON Structures", () => {
             parser.getNumberProperty("number").promise,
             parser.getBooleanProperty("boolean").promise,
             parser.getNullProperty("null").promise,
-            parser.getListProperty("array").promise,
-            parser.getMapProperty("object").promise,
+            parser.getArrayProperty("array").promise,
+            parser.getObjectProperty("object").promise,
         ]);
 
         expect(str).toBe("text");
@@ -191,7 +191,7 @@ describe("Complex JSON Structures", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const rootMap = await parser.getMapProperty("").promise;
+        const rootMap = await parser.getObjectProperty("").promise;
 
         expect(rootMap).toMatchObject({
             str: "hello",
@@ -203,3 +203,4 @@ describe("Complex JSON Structures", () => {
         });
     });
 });
+

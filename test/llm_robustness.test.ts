@@ -336,7 +336,7 @@ describe("LLM Robustness - Complex Structures", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const mixed = await parser.getListProperty("mixed").promise;
+        const mixed = await parser.getArrayProperty("mixed").promise;
 
         expect(mixed).toEqual([
             1,
@@ -358,8 +358,8 @@ describe("LLM Robustness - Complex Structures", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const emptyObj = await parser.getMapProperty("emptyObj").promise;
-        const emptyArr = await parser.getListProperty("emptyArr").promise;
+        const emptyObj = await parser.getObjectProperty("emptyObj").promise;
+        const emptyArr = await parser.getArrayProperty("emptyArr").promise;
         const emptyStr = await parser.getStringProperty("emptyStr").promise;
 
         expect(emptyObj).toEqual({});
@@ -391,7 +391,7 @@ Let me know if you need any modifications!`;
         });
         const parser = new JsonStreamParser(stream);
 
-        const users = await parser.getListProperty("users").promise;
+        const users = await parser.getArrayProperty("users").promise;
         const count = await parser.getNumberProperty("count").promise;
 
         expect(users).toEqual([
@@ -421,3 +421,4 @@ Let me know if you need any modifications!`;
         expect(error).toBe(null);
     });
 });
+

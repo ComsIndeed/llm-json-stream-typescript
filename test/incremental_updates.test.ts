@@ -48,7 +48,7 @@ describe("Incremental Updates", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const mapStream = parser.getMapProperty("");
+        const mapStream = parser.getObjectProperty("");
         const emittedMaps: Record<string, any>[] = [];
 
         for await (const snapshot of mapStream) {
@@ -71,7 +71,7 @@ describe("Incremental Updates", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const listStream = parser.getListProperty("items");
+        const listStream = parser.getArrayProperty("items");
         const emittedLists: any[][] = [];
 
         for await (const snapshot of listStream) {
@@ -95,7 +95,7 @@ describe("Incremental Updates", () => {
         const parser = new JsonStreamParser(stream);
 
         // Get streams for nested properties
-        const userStream = parser.getMapProperty("user");
+        const userStream = parser.getObjectProperty("user");
         const nameStream = parser.getStringProperty("user.name");
         const cityStream = parser.getStringProperty("user.profile.city");
 
@@ -119,7 +119,7 @@ describe("Incremental Updates", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const listStream = parser.getListProperty("numbers");
+        const listStream = parser.getArrayProperty("numbers");
         const elements: number[] = [];
         const indices: number[] = [];
 
@@ -253,3 +253,4 @@ describe("Incremental Updates - Streaming Strings", () => {
         expect(value).toBe("");
     });
 });
+

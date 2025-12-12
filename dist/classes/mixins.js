@@ -6,8 +6,8 @@ import { StringPropertyDelegate } from "./property_delegates/string_property_del
 import { NumberPropertyDelegate } from "./property_delegates/number_property_delegate.js";
 import { BooleanPropertyDelegate } from "./property_delegates/boolean_property_delegate.js";
 import { NullPropertyDelegate } from "./property_delegates/null_property_delegate.js";
-import { MapPropertyDelegate } from "./property_delegates/map_property_delegate.js";
-import { ListPropertyDelegate } from "./property_delegates/list_property_delegate.js";
+import { ObjectPropertyDelegate } from "./property_delegates/object_property_delegate.js";
+import { ArrayPropertyDelegate } from "./property_delegates/array_property_delegate.js";
 import { JsonStreamParserController } from "./json_stream_parser.js";
 /**
  * Factory function for creating the appropriate delegate based on the first character.
@@ -20,9 +20,9 @@ export function createDelegate(character, propertyPath, jsonStreamParserControll
         case "\t":
             throw new Error("Handle whitespace characters in your code.");
         case "{":
-            return new MapPropertyDelegate(propertyPath, jsonStreamParserController, onComplete);
+            return new ObjectPropertyDelegate(propertyPath, jsonStreamParserController, onComplete);
         case "[":
-            return new ListPropertyDelegate(propertyPath, jsonStreamParserController, onComplete);
+            return new ArrayPropertyDelegate(propertyPath, jsonStreamParserController, onComplete);
         case '"':
             return new StringPropertyDelegate(propertyPath, jsonStreamParserController, onComplete);
         case "-":

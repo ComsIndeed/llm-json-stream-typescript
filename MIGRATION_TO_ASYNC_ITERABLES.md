@@ -106,3 +106,4 @@ const parser = new JsonStreamParser(myStream());
 
 ## Conclusion
 The package now uses **ONLY async iterables**, making it truly cross-platform and avoiding the Node.js `stream` module compatibility issues that plague many other libraries. This positions the library as a modern, platform-agnostic solution for streaming JSON parsing in the AI/LLM space.
+

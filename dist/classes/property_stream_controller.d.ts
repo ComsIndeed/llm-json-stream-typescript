@@ -5,7 +5,7 @@
  * Uses async iterators as the primary streaming mechanism.
  */
 import { JsonStreamParserController } from "./json_stream_parser.js";
-import { BooleanPropertyStream, ListPropertyStream, MapPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream } from "./property_stream.js";
+import { BooleanPropertyStream, ArrayPropertyStream, ObjectPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream } from "./property_stream.js";
 /**
  * Base class for all property stream controllers.
  */
@@ -79,11 +79,11 @@ export declare class NullPropertyStreamController extends PropertyStreamControll
     complete(value: null): void;
 }
 /**
- * Controller for map/object property streams.
- * Maps emit snapshots as properties complete.
+ * Controller for object property streams.
+ * Objects emit snapshots as properties complete.
  */
-export declare class MapPropertyStreamController extends PropertyStreamController<Record<string, any>> {
-    readonly propertyStream: MapPropertyStream;
+export declare class ObjectPropertyStreamController extends PropertyStreamController<Record<string, any>> {
+    readonly propertyStream: ObjectPropertyStream;
     private currentValue;
     constructor(parserController: JsonStreamParserController, propertyPath: string);
     /**
@@ -97,11 +97,11 @@ export declare class MapPropertyStreamController extends PropertyStreamControlle
     complete(value?: Record<string, any>): void;
 }
 /**
- * Controller for list/array property streams.
- * Lists emit snapshots as elements complete.
+ * Controller for array property streams.
+ * Arrays emit snapshots as elements complete.
  */
-export declare class ListPropertyStreamController<T = any> extends PropertyStreamController<T[]> {
-    readonly propertyStream: ListPropertyStream<T>;
+export declare class ArrayPropertyStreamController<T = any> extends PropertyStreamController<T[]> {
+    readonly propertyStream: ArrayPropertyStream<T>;
     private currentValue;
     constructor(parserController: JsonStreamParserController, propertyPath: string);
     /**

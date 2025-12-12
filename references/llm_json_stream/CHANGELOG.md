@@ -28,14 +28,14 @@
 
 ## 0.4.0
 ### Added
-- **Buffered streams for Maps and Lists**: Both `MapPropertyStream` and `ListPropertyStream` now support buffered (replayable) streams, matching `StringPropertyStream` behavior
+- **Buffered streams for Maps and Lists**: Both `ObjectPropertyStream` and `ArrayPropertyStream` now support buffered (replayable) streams, matching `StringPropertyStream` behavior
   - `.stream` (default, recommended): Replays the latest value to new subscribers (BehaviorSubject-style), preventing race conditions when subscribing late
   - `.unbufferedStream`: Direct access to the live stream without replay, for cases where you need live-only behavior
   - **Memory efficient**: Only stores the latest state (O(1) memory), not the full history of emissions
 
 - **`onProperty` callback for Maps**: Similar to `onElement` for lists, maps now support an `onProperty` callback that fires when each property starts parsing
   ```dart
-  parser.getMapProperty('user').onProperty((property, key) {
+  parser.getObjectProperty('user').onProperty((property, key) {
     print('Property "$key" started parsing');
     // Subscribe to property value as it streams
   });
@@ -57,8 +57,8 @@
   - Property-specific logging via `.onLog()` method on any `PropertyStream`
 
 ### Changed
-- `MapPropertyStream.stream` now returns a replayable stream that emits the latest state to new subscribers
-- `ListPropertyStream.stream` now returns a replayable stream that emits the latest state to new subscribers
+- `ObjectPropertyStream.stream` now returns a replayable stream that emits the latest state to new subscribers
+- `ArrayPropertyStream.stream` now returns a replayable stream that emits the latest state to new subscribers
 - **Breaking**: Buffered streams now emit only the latest value (BehaviorSubject-style) instead of full history replay. This prevents O(N²) memory usage on large streams.
 
 ### Fixed
@@ -114,13 +114,13 @@ mapStream.stream.listen(...);  // Will receive latest state immediately
 ## 0.2.0
 
 ### Fixed
-- Fixed `getMapProperty()` returning empty maps instead of populated content
+- Fixed `getObjectProperty()` returning empty maps instead of populated content
 - Fixed nested lists and maps within parent maps returning null values
-- Fixed map property delegates not creating controllers for nested structures before child delegates
+- Fixed object property delegates not creating controllers for nested structures before child delegates
 - Fixed array element maps (e.g., `items[0]`) not containing their full content
 
 ### Changed
-- Map property delegates now collect all child values (primitives, maps, lists) before completing
+- object property delegates now collect all child values (primitives, maps, lists) before completing
 - Improved property controller initialization order for complex nested structures
 
 ### Tests
@@ -163,3 +163,4 @@ mapStream.stream.listen(...);  // Will receive latest state immediately
 - "Cannot add event after closing" errors
 - Proper delimiter handling between primitives and containers
 - Child delegate completion detection
+

@@ -7,10 +7,10 @@
  * responses that output structured JSON data.
  */
 import { PropertyStreamController } from "./property_stream_controller.js";
-import { BooleanPropertyStream, ListPropertyStream, MapPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream } from "./property_stream.js";
+import { BooleanPropertyStream, ArrayPropertyStream, ObjectPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream } from "./property_stream.js";
 /**
  * Controller interface for coordinating parsing operations.
- * Internal use only - not exposed in public API.
+ * Internal use only - not exposed in pub   lic API.
  */
 export declare class JsonStreamParserController {
     private addPropertyChunkFn;
@@ -20,13 +20,13 @@ export declare class JsonStreamParserController {
     constructor(addPropertyChunkFn: <T>(params: {
         chunk: T;
         propertyPath: string;
-    }) => void, getPropertyStreamControllerFn: (propertyPath: string) => PropertyStreamController<any> | undefined, getPropertyStreamFn: (propertyPath: string, streamType: "string" | "number" | "boolean" | "null" | "map" | "list") => PropertyStream<any>, completePropertyFn: <T>(propertyPath: string, value: T) => void);
+    }) => void, getPropertyStreamControllerFn: (propertyPath: string) => PropertyStreamController<any> | undefined, getPropertyStreamFn: (propertyPath: string, streamType: "string" | "number" | "boolean" | "null" | "object" | "array") => PropertyStream<any>, completePropertyFn: <T>(propertyPath: string, value: T) => void);
     addPropertyChunk<T>(params: {
         chunk: T;
         propertyPath: string;
     }): void;
     getPropertyStreamController(propertyPath: string): PropertyStreamController<any> | undefined;
-    getPropertyStream(propertyPath: string, streamType: "string" | "number" | "boolean" | "null" | "map" | "list"): PropertyStream<any>;
+    getPropertyStream(propertyPath: string, streamType: "string" | "number" | "boolean" | "null" | "object" | "array"): PropertyStream<any>;
     completeProperty<T>(propertyPath: string, value: T): void;
 }
 /**
@@ -61,13 +61,21 @@ export declare class JsonStreamParser {
      */
     getNullProperty(propertyPath: string): NullPropertyStream;
     /**
-     * Gets a stream for a map/object property at the specified propertyPath.
+     * Gets a stream for an object property at the specified propertyPath.
      */
-    getMapProperty(propertyPath: string): MapPropertyStream;
+    getObjectProperty(propertyPath: string): ObjectPropertyStream;
     /**
-     * Gets a stream for a list/array property at the specified propertyPath.
+     * Gets a stream for an array property at the specified propertyPath.
      */
-    getListProperty<T = any>(propertyPath: string): ListPropertyStream<T>;
+    getArrayProperty<T = any>(propertyPath: string): ArrayPropertyStream<T>;
+    /**
+     * @deprecated Use getObjectProperty instead
+     */
+    getMapProperty(propertyPath: string): ObjectPropertyStream;
+    /**
+     * @deprecated Use getArrayProperty instead
+     */
+    getListProperty<T = any>(propertyPath: string): ArrayPropertyStream<T>;
     /**
      * Disposes the parser and cleans up resources.
      */

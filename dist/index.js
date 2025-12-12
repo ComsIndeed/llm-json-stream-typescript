@@ -37,8 +37,10 @@
 // Core parser
 export { JsonStreamParser, JsonStreamParserController, } from "./classes/json_stream_parser.js";
 // Property streams (public API)
-export { BooleanPropertyStream, ListPropertyStream, MapPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream, } from "./classes/property_stream.js";
+export { BooleanPropertyStream, ArrayPropertyStream, ObjectPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream, } from "./classes/property_stream.js";
 export { createAsyncIterator } from "./classes/property_stream.js";
 // Utilities (for testing and advanced usage)
 export { streamTextInChunks } from "./utilities/stream_text_in_chunks.js";
+// Backward compatibility aliases
+export { ArrayPropertyStream as ListPropertyStream, ObjectPropertyStream as MapPropertyStream } from "./classes/property_stream.js";
 //# sourceMappingURL=index.js.map

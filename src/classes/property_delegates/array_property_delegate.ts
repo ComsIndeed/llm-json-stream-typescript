@@ -1,5 +1,5 @@
 /**
- * Delegate for parsing JSON array/list values.
+ * Delegate for parsing JSON array values.
  */
 
 import { PropertyDelegate } from "./property_delegate.js";
@@ -8,16 +8,16 @@ import { StringPropertyDelegate } from "./string_property_delegate.js";
 import { NumberPropertyDelegate } from "./number_property_delegate.js";
 import { BooleanPropertyDelegate } from "./boolean_property_delegate.js";
 import { NullPropertyDelegate } from "./null_property_delegate.js";
-import { MapPropertyDelegate } from "./map_property_delegate.js";
-import { ListPropertyStreamController } from "../property_stream_controller.js";
+import { ObjectPropertyDelegate } from "./object_property_delegate.js";
+import { ArrayPropertyStreamController } from "../property_stream_controller.js";
 
-enum ListParserState {
+enum ArrayParserState {
     WaitingForValue,
     ReadingValue,
     WaitingForCommaOrEnd,
 }
 
-export class ListPropertyDelegate extends PropertyDelegate {
+export class ArrayPropertyDelegate extends PropertyDelegate {
     private static readonly VALUE_FIRST_CHARACTERS = new Set([
         '"',
         "{",
@@ -38,11 +38,11 @@ export class ListPropertyDelegate extends PropertyDelegate {
         "9",
     ]);
 
-    private state: ListParserState = ListParserState.WaitingForValue;
+    private state: ArrayParserState = ArrayParserState.WaitingForValue;
     private index = 0;
     private isFirstCharacter = true;
     private activeChildDelegate: PropertyDelegate | null = null;
-    private currentList: any[] = [];
+    private currentArray: any[] = [];
     /** Tracks which elements have been filled with their final values */
     private elementPaths: string[] = [];
 
@@ -70,7 +70,7 @@ export class ListPropertyDelegate extends PropertyDelegate {
         );
         if (controller) {
             this.parserController.addPropertyChunk({
-                chunk: [...this.currentList],
+                chunk: [...this.currentArray],
                 propertyPath: this.propertyPath,
             });
         }
@@ -80,18 +80,18 @@ export class ListPropertyDelegate extends PropertyDelegate {
         // Handle opening bracket
         if (this.isFirstCharacter && character === "[") {
             this.isFirstCharacter = false;
-            this.state = ListParserState.WaitingForValue;
+            this.state = ArrayParserState.WaitingForValue;
             return;
         }
 
         // Skip whitespace when not reading a value
         if (
-            this.state !== ListParserState.ReadingValue && /\s/.test(character)
+            this.state !== ArrayParserState.ReadingValue && /\s/.test(character)
         ) {
             return;
         }
 
-        if (this.state === ListParserState.ReadingValue) {
+        if (this.state === ArrayParserState.ReadingValue) {
             // Store the delegate reference before calling addCharacter
             const childDelegate = this.activeChildDelegate;
             childDelegate?.addCharacter(character);
@@ -104,18 +104,18 @@ export class ListPropertyDelegate extends PropertyDelegate {
                     const childController = this.parserController
                         .getPropertyStreamController(completedElementPath);
                     if (childController && childController.hasFinalValue) {
-                        this.currentList[this.index] =
+                        this.currentArray[this.index] =
                             childController.finalValue;
                     }
                 }
 
                 this.activeChildDelegate = null;
                 this.index++;
-                this.state = ListParserState.WaitingForCommaOrEnd;
-                // Only reprocess if the child is NOT a list or map
+                this.state = ArrayParserState.WaitingForCommaOrEnd;
+                // Only reprocess if the child is NOT an array or object
                 if (
-                    childDelegate instanceof ListPropertyDelegate ||
-                    childDelegate instanceof MapPropertyDelegate
+                    childDelegate instanceof ArrayPropertyDelegate ||
+                    childDelegate instanceof ObjectPropertyDelegate
                 ) {
                     return; // Don't reprocess - child consumed the closing bracket
                 }
@@ -126,22 +126,22 @@ export class ListPropertyDelegate extends PropertyDelegate {
         }
 
         // Handle waiting for value state
-        if (this.state === ListParserState.WaitingForValue) {
-            if (ListPropertyDelegate.VALUE_FIRST_CHARACTERS.has(character)) {
+        if (this.state === ArrayParserState.WaitingForValue) {
+            if (ArrayPropertyDelegate.VALUE_FIRST_CHARACTERS.has(character)) {
                 // Determine the type
                 let streamType:
                     | "string"
                     | "number"
                     | "boolean"
                     | "null"
-                    | "map"
-                    | "list";
+                    | "object"
+                    | "array";
                 if (character === '"') {
                     streamType = "string";
                 } else if (character === "{") {
-                    streamType = "map";
+                    streamType = "object";
                 } else if (character === "[") {
-                    streamType = "list";
+                    streamType = "array";
                 } else if (character === "t" || character === "f") {
                     streamType = "boolean";
                 } else if (character === "n") {
@@ -159,16 +159,16 @@ export class ListPropertyDelegate extends PropertyDelegate {
                     streamType,
                 );
 
-                // Add placeholder to current list at this index position
-                this.currentList.push(null);
+                // Add placeholder to current array at this index position
+                this.currentArray.push(null);
 
                 // Notify onElement callbacks
-                const listController = this.parserController
+                const arrayController = this.parserController
                     .getPropertyStreamController(
                         this.propertyPath,
-                    ) as ListPropertyStreamController | undefined;
-                if (listController && elementStream) {
-                    listController.notifyElement(elementStream, this.index);
+                    ) as ArrayPropertyStreamController | undefined;
+                if (arrayController && elementStream) {
+                    arrayController.notifyElement(elementStream, this.index);
                 }
 
                 // Create delegate
@@ -180,22 +180,22 @@ export class ListPropertyDelegate extends PropertyDelegate {
                 this.activeChildDelegate = delegate;
                 this.activeChildDelegate.addCharacter(character);
 
-                this.state = ListParserState.ReadingValue;
+                this.state = ArrayParserState.ReadingValue;
                 return;
             }
 
             if (character === "]") {
-                this.completeList();
+                this.completeArray();
                 return;
             }
         }
 
-        if (this.state === ListParserState.WaitingForCommaOrEnd) {
+        if (this.state === ArrayParserState.WaitingForCommaOrEnd) {
             if (character === ",") {
-                this.state = ListParserState.WaitingForValue;
+                this.state = ArrayParserState.WaitingForValue;
                 return;
             } else if (character === "]") {
-                this.completeList();
+                this.completeArray();
                 return;
             }
         }
@@ -211,12 +211,12 @@ export class ListPropertyDelegate extends PropertyDelegate {
                 this.parserController,
             );
         } else if (character === "{") {
-            return new MapPropertyDelegate(
+            return new ObjectPropertyDelegate(
                 childPath,
                 this.parserController,
             );
         } else if (character === "[") {
-            return new ListPropertyDelegate(
+            return new ArrayPropertyDelegate(
                 childPath,
                 this.parserController,
             );
@@ -238,13 +238,13 @@ export class ListPropertyDelegate extends PropertyDelegate {
         }
     }
 
-    private completeList(): void {
+    private completeArray(): void {
         this.isDone = true;
 
-        // All values should already be in currentList from synchronous updates
-        // Complete the list controller with the accumulated elements
+        // All values should already be in currentArray from synchronous updates
+        // Complete the array controller with the accumulated elements
         this.parserController.completeProperty(this.propertyPath, [
-            ...this.currentList,
+            ...this.currentArray,
         ]);
         this.onComplete?.();
     }

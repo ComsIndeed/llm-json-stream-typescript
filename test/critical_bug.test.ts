@@ -45,14 +45,14 @@ describe("Critical Bug Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const outerStream = parser.getListProperty("outer");
+        const outerStream = parser.getArrayProperty("outer");
 
         let innerCallbackCount = 0;
 
         outerStream.onElement((element, index) => {
             if (index === 0) {
                 // Access nested list
-                const innerStream = parser.getListProperty("outer[0].inner");
+                const innerStream = parser.getArrayProperty("outer[0].inner");
                 innerStream.onElement(() => {
                     innerCallbackCount++;
                 });
@@ -120,7 +120,7 @@ describe("Critical Bug Tests", () => {
         // Access in different orders
         const [direct, stepped] = await Promise.all([
             parser.getStringProperty("a.b.c").promise,
-            parser.getMapProperty("a.b").promise.then((map) => map.c),
+            parser.getObjectProperty("a.b").promise.then((map) => map.c),
         ]);
 
         expect(direct).toBe("value");
@@ -165,3 +165,4 @@ describe("Critical Bug Tests", () => {
         expect(notEmpty).toBe("value");
     });
 });
+

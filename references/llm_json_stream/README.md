@@ -148,7 +148,7 @@ An underrated but powerful feature. Add items to your UI **the instant parsing b
 ![Reactive list example](https://raw.githubusercontent.com/ComsIndeed/llm_json_stream/main/assets/demo/list-onElement-string-streams.gif)
 
 ```dart
-parser.getListProperty('articles').onElement((article, index) {
+parser.getArrayProperty('articles').onElement((article, index) {
   // Fires IMMEDIATELY when "[{" is detected
   setState(() => articles.add(ArticleCard.loading()));
   
@@ -167,7 +167,7 @@ parser.getListProperty('articles').onElement((article, index) {
 Similar to lists, maps support an `onProperty` callback that fires when each property starts parsing:
 
 ```dart
-parser.getMapProperty('user').onProperty((property, key) {
+parser.getObjectProperty('user').onProperty((property, key) {
   // Fires IMMEDIATELY when a property key is discovered
   print('Property "$key" started parsing');
   
@@ -189,8 +189,8 @@ parser.getStringProperty('name')      // String → streams chunks
 parser.getNumberProperty('age')       // Number → int or double
 parser.getBooleanProperty('active')   // Boolean  
 parser.getNullProperty('deleted')     // Null
-parser.getMapProperty('config')       // Object → Map<String, dynamic>
-parser.getListProperty('tags')        // Array → List<dynamic>
+parser.getObjectProperty('config')       // Object → Map<String, dynamic>
+parser.getArrayProperty('tags')        // Array → List<dynamic>
 ```
 
 ### ⛓️ Flexible API
@@ -199,7 +199,7 @@ Navigate complex structures with a fluent interface:
 
 ```dart
 // Chain getters together
-final user = parser.getMapProperty('user');
+final user = parser.getObjectProperty('user');
 final name = await user.getStringProperty('name').future;
 final email = await user.getStringProperty('email').future;
 
@@ -215,7 +215,7 @@ final age = await parser.str('user.age').future;
 Handle dynamic list elements with type casts:
 
 ```dart
-parser.getListProperty('items').onElement((element, index) {
+parser.getArrayProperty('items').onElement((element, index) {
   element.asMap.getStringProperty('title').stream.listen(...);
   element.asMap.getNumberProperty('price').future.then(...);
 });
@@ -228,7 +228,7 @@ Available: `.asMap`, `.asList`, `.asStr`, `.asNum`, `.asBool`, `.asNull`
 Property streams offer two modes to handle different subscription timing scenarios:
 
 ```dart
-final items = parser.getListProperty('items');
+final items = parser.getArrayProperty('items');
 
 // Recommended: Buffered stream (replays latest value to new subscribers)
 items.stream.listen((list) {
@@ -250,7 +250,7 @@ items.unbufferedStream.listen((list) {
 
 **Memory efficient**: Maps and Lists only buffer the latest state (O(1) memory), not the full history. Strings buffer chunks for accumulation.
 
-This applies to `StringPropertyStream`, `MapPropertyStream`, and `ListPropertyStream`.
+This applies to `StringPropertyStream`, `ObjectPropertyStream`, and `ArrayPropertyStream`.
 
 ### 🛑 Yap Filter (closeOnRootComplete)
 
@@ -304,7 +304,7 @@ Available event types:
 You can also attach log listeners to specific properties:
 
 ```dart
-parser.getMapProperty('user').onLog((event) {
+parser.getObjectProperty('user').onLog((event) {
   // Only receives events for 'user' and its descendants
   print('User event: ${event.type}');
 });
@@ -331,7 +331,7 @@ void main() async {
   });
   
   // Sections appear the moment they start
-  parser.getListProperty('sections').onElement((section, index) {
+  parser.getArrayProperty('sections').onElement((section, index) {
     print('Section $index detected!');
     
     section.asMap.getStringProperty('heading').stream.listen((chunk) {
@@ -344,7 +344,7 @@ void main() async {
   });
   
   // Wait for completion
-  final allSections = await parser.getListProperty('sections').future;
+  final allSections = await parser.getArrayProperty('sections').future;
   print('Done! Got ${allSections.length} sections');
   
   await parser.dispose();
@@ -363,8 +363,8 @@ void main() async {
 | `.number(path)` | `.getNumberProperty(path)` | `NumberPropertyStream` |
 | `.bool(path)` | `.getBooleanProperty(path)` | `BooleanPropertyStream` |
 | `.nil(path)` | `.getNullProperty(path)` | `NullPropertyStream` |
-| `.map(path)` | `.getMapProperty(path)` | `MapPropertyStream` |
-| `.list(path)` | `.getListProperty(path)` | `ListPropertyStream` |
+| `.map(path)` | `.getObjectProperty(path)` | `ObjectPropertyStream` |
+| `.list(path)` | `.getArrayProperty(path)` | `ArrayPropertyStream` |
 
 ### PropertyStream Interface
 
@@ -374,13 +374,13 @@ void main() async {
 .future           // Future<T> — completes with final value
 ```
 
-### ListPropertyStream
+### ArrayPropertyStream
 
 ```dart
 .onElement((element, index) => ...)  // Callback when element parsing starts
 ```
 
-### MapPropertyStream
+### ObjectPropertyStream
 
 ```dart
 .onProperty((property, key) => ...)  // Callback when property parsing starts
@@ -389,8 +389,8 @@ void main() async {
 ### Smart Casts
 
 ```dart
-.asMap    // → MapPropertyStream
-.asList   // → ListPropertyStream  
+.asMap    // → ObjectPropertyStream
+.asList   // → ArrayPropertyStream  
 .asStr    // → StringPropertyStream
 .asNum    // → NumberPropertyStream
 .asBool   // → BooleanPropertyStream
@@ -517,3 +517,4 @@ MIT — see [LICENSE](LICENSE)
 [⭐ Star](https://github.com/ComsIndeed/llm_json_stream) · [📦 pub.dev](https://pub.dev/packages/llm_json_stream) · [🐛 Issues](https://github.com/ComsIndeed/llm_json_stream/issues)
 
 </div>
+

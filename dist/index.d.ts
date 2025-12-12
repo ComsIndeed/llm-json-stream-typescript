@@ -35,9 +35,10 @@
  * ```
  */
 export { JsonStreamParser, JsonStreamParserController, } from "./classes/json_stream_parser.js";
-export { BooleanPropertyStream, ListPropertyStream, MapPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream, } from "./classes/property_stream.js";
+export { BooleanPropertyStream, ArrayPropertyStream, ObjectPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream, } from "./classes/property_stream.js";
 export type { AsyncIteratorController } from "./classes/property_stream.js";
 export { createAsyncIterator } from "./classes/property_stream.js";
 export { streamTextInChunks } from "./utilities/stream_text_in_chunks.js";
 export type { StreamTextOptions } from "./utilities/stream_text_in_chunks.js";
+export { ArrayPropertyStream as ListPropertyStream, ObjectPropertyStream as MapPropertyStream } from "./classes/property_stream.js";
 //# sourceMappingURL=index.d.ts.map

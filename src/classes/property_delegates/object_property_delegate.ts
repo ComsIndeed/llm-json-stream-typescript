@@ -1,5 +1,5 @@
 /**
- * Delegate for parsing JSON object/map values.
+ * Delegate for parsing JSON object values.
  */
 
 import { PropertyDelegate } from "./property_delegate.js";
@@ -8,9 +8,9 @@ import { StringPropertyDelegate } from "./string_property_delegate.js";
 import { NumberPropertyDelegate } from "./number_property_delegate.js";
 import { BooleanPropertyDelegate } from "./boolean_property_delegate.js";
 import { NullPropertyDelegate } from "./null_property_delegate.js";
-import { ListPropertyDelegate } from "./list_property_delegate.js";
+import { ArrayPropertyDelegate } from "./array_property_delegate.js";
 
-enum MapParserState {
+enum ObjectParserState {
     WaitingForKey,
     ReadingKey,
     WaitingForValue,
@@ -18,14 +18,14 @@ enum MapParserState {
     WaitingForCommaOrEnd,
 }
 
-export class MapPropertyDelegate extends PropertyDelegate {
-    private state: MapParserState = MapParserState.WaitingForKey;
+export class ObjectPropertyDelegate extends PropertyDelegate {
+    private state: ObjectParserState = ObjectParserState.WaitingForKey;
     private firstCharacter = true;
     private keyBuffer = "";
     private activeChildDelegate: PropertyDelegate | null = null;
     private activeChildKey: string | null = null;
     private keys: string[] = [];
-    private currentMap: Record<string, any> = {};
+    private currentObject: Record<string, any> = {};
 
     constructor(
         propertyPath: string,
@@ -41,13 +41,13 @@ export class MapPropertyDelegate extends PropertyDelegate {
             this.activeChildDelegate.onChunkEnd();
         }
 
-        // Emit current map state
+        // Emit current object state
         const controller = this.parserController.getPropertyStreamController(
             this.propertyPath,
         );
         if (controller) {
             this.parserController.addPropertyChunk({
-                chunk: { ...this.currentMap },
+                chunk: { ...this.currentObject },
                 propertyPath: this.propertyPath,
             });
         }
@@ -55,9 +55,9 @@ export class MapPropertyDelegate extends PropertyDelegate {
 
     addCharacter(character: string): void {
         // Reading key state
-        if (this.state === MapParserState.ReadingKey) {
+        if (this.state === ObjectParserState.ReadingKey) {
             if (character === '"') {
-                this.state = MapParserState.WaitingForValue;
+                this.state = ObjectParserState.WaitingForValue;
                 return;
             } else {
                 this.keyBuffer += character;
@@ -66,7 +66,7 @@ export class MapPropertyDelegate extends PropertyDelegate {
         }
 
         // Reading value state - delegate to child
-        if (this.state === MapParserState.ReadingValue) {
+        if (this.state === ObjectParserState.ReadingValue) {
             const childDelegate = this.activeChildDelegate;
             childDelegate?.addCharacter(character);
 
@@ -79,20 +79,20 @@ export class MapPropertyDelegate extends PropertyDelegate {
                     const childController = this.parserController
                         .getPropertyStreamController(childPath);
                     if (childController && childController.hasFinalValue) {
-                        this.currentMap[completedKey] =
+                        this.currentObject[completedKey] =
                             childController.finalValue;
                     }
                 }
 
-                this.state = MapParserState.WaitingForCommaOrEnd;
+                this.state = ObjectParserState.WaitingForCommaOrEnd;
                 this.activeChildDelegate = null;
                 this.activeChildKey = null;
 
-                // Only reprocess if the child is NOT a list or map
-                // (lists and maps consume their own closing brackets)
+                // Only reprocess if the child is NOT an array or object
+                // (arrays and objects consume their own closing brackets)
                 if (
-                    childDelegate instanceof ListPropertyDelegate ||
-                    childDelegate instanceof MapPropertyDelegate
+                    childDelegate instanceof ArrayPropertyDelegate ||
+                    childDelegate instanceof ObjectPropertyDelegate
                 ) {
                     return; // Don't reprocess - child consumed the closing bracket
                 }
@@ -103,7 +103,7 @@ export class MapPropertyDelegate extends PropertyDelegate {
         }
 
         // Waiting for value - determine type and create delegate
-        if (this.state === MapParserState.WaitingForValue) {
+        if (this.state === ObjectParserState.WaitingForValue) {
             if (character === " " || character === ":") return;
 
             // Add this key to our list of keys
@@ -118,15 +118,15 @@ export class MapPropertyDelegate extends PropertyDelegate {
                 | "number"
                 | "boolean"
                 | "null"
-                | "map"
-                | "list";
+                | "object"
+                | "array";
 
             if (character === '"') {
                 streamType = "string";
             } else if (character === "{") {
-                streamType = "map";
+                streamType = "object";
             } else if (character === "[") {
-                streamType = "list";
+                streamType = "array";
             } else if (character === "t" || character === "f") {
                 streamType = "boolean";
             } else if (character === "n") {
@@ -140,13 +140,13 @@ export class MapPropertyDelegate extends PropertyDelegate {
                 childPath,
                 streamType,
             );
-            this.currentMap[currentKeyString] = null;
+            this.currentObject[currentKeyString] = null;
 
             // Notify callbacks about the new property
-            const mapController = this.parserController
+            const objectController = this.parserController
                 .getPropertyStreamController(this.propertyPath);
-            if (mapController && "notifyProperty" in mapController) {
-                (mapController as any).notifyProperty(
+            if (objectController && "notifyProperty" in objectController) {
+                (objectController as any).notifyProperty(
                     childStream,
                     currentKeyString,
                 );
@@ -156,7 +156,7 @@ export class MapPropertyDelegate extends PropertyDelegate {
             const childDelegate = this.createDelegate(character, childPath);
             this.activeChildDelegate = childDelegate;
             this.activeChildDelegate.addCharacter(character);
-            this.state = MapParserState.ReadingValue;
+            this.state = ObjectParserState.ReadingValue;
             return;
         }
 
@@ -167,33 +167,33 @@ export class MapPropertyDelegate extends PropertyDelegate {
         }
 
         // Waiting for comma or end
-        if (this.state === MapParserState.WaitingForCommaOrEnd) {
+        if (this.state === ObjectParserState.WaitingForCommaOrEnd) {
             // Skip whitespace
             if (/\s/.test(character)) {
                 return;
             }
             if (character === ",") {
-                this.state = MapParserState.WaitingForKey;
+                this.state = ObjectParserState.WaitingForKey;
                 this.keyBuffer = "";
                 return;
             } else if (character === "}") {
-                this.completeMap();
+                this.completeObject();
                 return;
             }
         }
 
         // Waiting for key
-        if (this.state === MapParserState.WaitingForKey) {
+        if (this.state === ObjectParserState.WaitingForKey) {
             // Skip whitespace
             if (/\s/.test(character)) {
                 return;
             }
             if (character === '"') {
-                this.state = MapParserState.ReadingKey;
+                this.state = ObjectParserState.ReadingKey;
                 return;
             }
             if (character === "}") {
-                this.completeMap();
+                this.completeObject();
                 return;
             }
         }
@@ -206,9 +206,9 @@ export class MapPropertyDelegate extends PropertyDelegate {
         if (character === '"') {
             return new StringPropertyDelegate(childPath, this.parserController);
         } else if (character === "{") {
-            return new MapPropertyDelegate(childPath, this.parserController);
+            return new ObjectPropertyDelegate(childPath, this.parserController);
         } else if (character === "[") {
-            return new ListPropertyDelegate(childPath, this.parserController);
+            return new ArrayPropertyDelegate(childPath, this.parserController);
         } else if (character === "t" || character === "f") {
             return new BooleanPropertyDelegate(
                 childPath,
@@ -221,11 +221,11 @@ export class MapPropertyDelegate extends PropertyDelegate {
         }
     }
 
-    private completeMap(): void {
+    private completeObject(): void {
         this.isDone = true;
-        // Complete the map controller with the accumulated values
+        // Complete the object controller with the accumulated values
         this.parserController.completeProperty(this.propertyPath, {
-            ...this.currentMap,
+            ...this.currentObject,
         });
         this.onComplete?.();
     }

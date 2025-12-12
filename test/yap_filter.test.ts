@@ -33,7 +33,7 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const listStream = parser.getListProperty("");
+        const listStream = parser.getArrayProperty("");
 
         // Parser should complete gracefully
         const result = await listStream.promise;
@@ -71,7 +71,7 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const dataStream = parser.getMapProperty("");
+        const dataStream = parser.getObjectProperty("");
 
         const result = await dataStream.promise;
         expect(result["key"]).toBe("value");
@@ -90,7 +90,7 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const userStream = parser.getMapProperty("user");
+        const userStream = parser.getObjectProperty("user");
         const nameStream = parser.getStringProperty("user.name");
         const ageStream = parser.getNumberProperty("user.age");
 
@@ -156,8 +156,8 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const dataStream = parser.getMapProperty("data");
-        const itemsStream = parser.getListProperty("data.items");
+        const dataStream = parser.getObjectProperty("data");
+        const itemsStream = parser.getArrayProperty("data.items");
         const countStream = parser.getNumberProperty("data.meta.count");
 
         const [data, items, count] = await Promise.all([
@@ -183,7 +183,7 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const listStream = parser.getListProperty("");
+        const listStream = parser.getArrayProperty("");
 
         const result = await listStream.promise;
         expect(result).toEqual(["apple", "banana", "cherry"]);
@@ -248,3 +248,4 @@ describe("Yap Filter - Edge Cases", () => {
         parser.dispose();
     });
 });
+

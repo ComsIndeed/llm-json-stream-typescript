@@ -107,3 +107,4 @@ describe("Multiline JSON Tests", () => {
         expect(result).toBe("Roses are red\nViolets are blue");
     });
 });
+

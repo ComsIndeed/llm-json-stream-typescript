@@ -24,8 +24,8 @@ describe("Comprehensive Value Retrieval Tests", () => {
             parser.getNumberProperty("age").promise,
             parser.getBooleanProperty("active").promise,
             parser.getNullProperty("data").promise,
-            parser.getListProperty("tags").promise,
-            parser.getMapProperty("meta").promise,
+            parser.getArrayProperty("tags").promise,
+            parser.getObjectProperty("meta").promise,
         ]);
 
         expect(name).toBe("Alice");
@@ -179,3 +179,4 @@ describe("Comprehensive Value Retrieval Tests", () => {
         expect(value).toBe(42);
     });
 });
+

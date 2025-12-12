@@ -6,14 +6,14 @@
  * It's specifically designed for handling Large Language Model (LLM) streaming
  * responses that output structured JSON data.
  */
-import { BooleanPropertyStreamController, ListPropertyStreamController, MapPropertyStreamController, NullPropertyStreamController, NumberPropertyStreamController, PropertyStreamController, StringPropertyStreamController, } from "./property_stream_controller.js";
-import { BooleanPropertyStream, ListPropertyStream, MapPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream, } from "./property_stream.js";
+import { BooleanPropertyStreamController, ArrayPropertyStreamController, ObjectPropertyStreamController, NullPropertyStreamController, NumberPropertyStreamController, PropertyStreamController, StringPropertyStreamController, } from "./property_stream_controller.js";
+import { BooleanPropertyStream, ArrayPropertyStream, ObjectPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream, } from "./property_stream.js";
 import { PropertyDelegate } from "./property_delegates/property_delegate.js";
-import { MapPropertyDelegate } from "./property_delegates/map_property_delegate.js";
-import { ListPropertyDelegate } from "./property_delegates/list_property_delegate.js";
+import { ObjectPropertyDelegate } from "./property_delegates/object_property_delegate.js";
+import { ArrayPropertyDelegate } from "./property_delegates/array_property_delegate.js";
 /**
  * Controller interface for coordinating parsing operations.
- * Internal use only - not exposed in public API.
+ * Internal use only - not exposed in pub   lic API.
  */
 export class JsonStreamParserController {
     addPropertyChunkFn;
@@ -148,36 +148,48 @@ export class JsonStreamParser {
         return controller.propertyStream;
     }
     /**
-     * Gets a stream for a map/object property at the specified propertyPath.
+     * Gets a stream for an object property at the specified propertyPath.
      */
-    getMapProperty(propertyPath) {
+    getObjectProperty(propertyPath) {
         this.checkDisposed();
         const existing = this.propertyControllers.get(propertyPath);
         if (existing) {
-            if (!(existing instanceof MapPropertyStreamController)) {
-                throw new Error(`Property at path ${propertyPath} is not a MapPropertyStream`);
+            if (!(existing instanceof ObjectPropertyStreamController)) {
+                throw new Error(`Property at path ${propertyPath} is not a ObjectPropertyStream`);
             }
             return existing.propertyStream;
         }
-        const controller = new MapPropertyStreamController(this.controller, propertyPath);
+        const controller = new ObjectPropertyStreamController(this.controller, propertyPath);
         this.propertyControllers.set(propertyPath, controller);
         return controller.propertyStream;
     }
     /**
-     * Gets a stream for a list/array property at the specified propertyPath.
+     * Gets a stream for an array property at the specified propertyPath.
      */
-    getListProperty(propertyPath) {
+    getArrayProperty(propertyPath) {
         this.checkDisposed();
         const existing = this.propertyControllers.get(propertyPath);
         if (existing) {
-            if (!(existing instanceof ListPropertyStreamController)) {
-                throw new Error(`Property at path ${propertyPath} is not a ListPropertyStream`);
+            if (!(existing instanceof ArrayPropertyStreamController)) {
+                throw new Error(`Property at path ${propertyPath} is not a ArrayPropertyStream`);
             }
             return existing.propertyStream;
         }
-        const controller = new ListPropertyStreamController(this.controller, propertyPath);
+        const controller = new ArrayPropertyStreamController(this.controller, propertyPath);
         this.propertyControllers.set(propertyPath, controller);
         return controller.propertyStream;
+    }
+    /**
+     * @deprecated Use getObjectProperty instead
+     */
+    getMapProperty(propertyPath) {
+        return this.getObjectProperty(propertyPath);
+    }
+    /**
+     * @deprecated Use getArrayProperty instead
+     */
+    getListProperty(propertyPath) {
+        return this.getArrayProperty(propertyPath);
     }
     /**
      * Disposes the parser and cleans up resources.
@@ -241,11 +253,11 @@ export class JsonStreamParser {
                     continue;
                 }
                 if (character === "{") {
-                    this.rootDelegate = new MapPropertyDelegate("", this.controller);
+                    this.rootDelegate = new ObjectPropertyDelegate("", this.controller);
                     this.rootDelegate.addCharacter(character);
                 }
                 else if (character === "[") {
-                    this.rootDelegate = new ListPropertyDelegate("", this.controller);
+                    this.rootDelegate = new ArrayPropertyDelegate("", this.controller);
                     this.rootDelegate.addCharacter(character);
                 }
             }
@@ -277,12 +289,12 @@ export class JsonStreamParser {
         if (controller instanceof StringPropertyStreamController) {
             controller.addChunk(params.chunk);
         }
-        else if (controller instanceof MapPropertyStreamController) {
-            // Maps emit snapshots - push to async iterator without completing
+        else if (controller instanceof ObjectPropertyStreamController) {
+            // Objects emit snapshots - push to async iterator without completing
             controller.propertyStream._pushValue(params.chunk);
         }
-        else if (controller instanceof ListPropertyStreamController) {
-            // Lists emit snapshots - push to async iterator without completing
+        else if (controller instanceof ArrayPropertyStreamController) {
+            // Arrays emit snapshots - push to async iterator without completing
             controller.propertyStream._pushValue(params.chunk);
         }
         // Numbers, booleans, and nulls don't receive chunks - they complete directly
@@ -303,10 +315,10 @@ export class JsonStreamParser {
                     existing instanceof BooleanPropertyStreamController) ||
                 (streamType === "null" &&
                     existing instanceof NullPropertyStreamController) ||
-                (streamType === "map" &&
-                    existing instanceof MapPropertyStreamController) ||
-                (streamType === "list" &&
-                    existing instanceof ListPropertyStreamController);
+                (streamType === "object" &&
+                    existing instanceof ObjectPropertyStreamController) ||
+                (streamType === "array" &&
+                    existing instanceof ArrayPropertyStreamController);
             if (isCompatible) {
                 return existing.propertyStream;
             }
@@ -327,10 +339,10 @@ export class JsonStreamParser {
                 return this.getBooleanProperty(propertyPath);
             case "null":
                 return this.getNullProperty(propertyPath);
-            case "map":
-                return this.getMapProperty(propertyPath);
-            case "list":
-                return this.getListProperty(propertyPath);
+            case "object":
+                return this.getObjectProperty(propertyPath);
+            case "array":
+                return this.getArrayProperty(propertyPath);
             default:
                 throw new Error(`Unknown stream type: ${streamType}`);
         }
@@ -351,10 +363,10 @@ export class JsonStreamParser {
         else if (controller instanceof NullPropertyStreamController) {
             controller.complete(value);
         }
-        else if (controller instanceof MapPropertyStreamController) {
+        else if (controller instanceof ObjectPropertyStreamController) {
             controller.complete(value);
         }
-        else if (controller instanceof ListPropertyStreamController) {
+        else if (controller instanceof ArrayPropertyStreamController) {
             controller.complete(value);
         }
     }

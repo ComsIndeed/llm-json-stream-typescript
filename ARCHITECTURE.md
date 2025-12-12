@@ -18,7 +18,7 @@ The TypeScript JSON Stream Parser is a **character-by-character state machine** 
 
 **JsonStreamParser** - Main entry point
 - Constructor: Takes a `Readable` stream
-- Methods: `getStringProperty()`, `getNumberProperty()`, `getBooleanProperty()`, `getNullProperty()`, `getMapProperty()`, `getListProperty()`
+- Methods: `getStringProperty()`, `getNumberProperty()`, `getBooleanProperty()`, `getNullProperty()`, `getObjectProperty()`, `getArrayProperty()`
 - Method: `dispose()` for cleanup
 
 **PropertyStream Classes** - What users interact with
@@ -26,8 +26,8 @@ The TypeScript JSON Stream Parser is a **character-by-character state machine** 
 - `NumberPropertyStream` - Has `.stream` and `.future`
 - `BooleanPropertyStream` - Has `.stream` and `.future`
 - `NullPropertyStream` - Has `.stream` and `.future`
-- `MapPropertyStream` - Has `.future` and chainable getters (future feature)
-- `ListPropertyStream` - Has `.future` and `.onElement()` callback
+- `ObjectPropertyStream` - Has `.future` and chainable getters (future feature)
+- `ArrayPropertyStream` - Has `.future` and `.onElement()` callback
 
 ### Layer 2: Internal Controllers
 
@@ -41,8 +41,8 @@ The TypeScript JSON Stream Parser is a **character-by-character state machine** 
 - `NumberPropertyStreamController` - Accumulates digits, emits complete number
 - `BooleanPropertyStreamController` - Emits boolean when complete
 - `NullPropertyStreamController` - Emits null when complete
-- `MapPropertyStreamController` - Manages object completion
-- `ListPropertyStreamController` - Manages array elements and callbacks
+- `ObjectPropertyStreamController` - Manages object completion
+- `ArrayPropertyStreamController` - Manages array elements and callbacks
 
 ### Layer 3: State Machine (Delegates)
 
@@ -209,7 +209,7 @@ const age = await parser.getNumberProperty('age').promise;
 console.log('Age:', age);
 
 // React to array elements
-const items = parser.getListProperty('items');
+const items = parser.getArrayProperty('items');
 items.onElement((element, index) => {
   console.log(`Element ${index} started`);
   // Set up subscriptions for this element
@@ -239,3 +239,4 @@ Before implementing logic:
 
 **Created:** November 18, 2025
 **Status:** Architecture complete, ready for implementation
+

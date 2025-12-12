@@ -86,7 +86,7 @@ describe("Bug Diagnosis Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const listStream = parser.getListProperty("list");
+        const listStream = parser.getArrayProperty("list");
 
         const elements: number[] = [];
 
@@ -183,3 +183,4 @@ describe("Bug Diagnosis Tests", () => {
         expect(other).toBe("data");
     });
 });
+

@@ -13,7 +13,7 @@ describe("Debug Simple List", () => {
         const parser = new JsonStreamParser(stream);
 
         // console.log("=== Big chunks test ===");
-        const numbersStream = parser.getListProperty("numbers");
+        const numbersStream = parser.getArrayProperty("numbers");
 
         const result = await numbersStream.promise;
         // console.log("Result:", result);
@@ -30,10 +30,11 @@ describe("Debug Simple List", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const numbersStream = parser.getListProperty("numbers");
+        const numbersStream = parser.getArrayProperty("numbers");
 
         const result = await numbersStream.promise;
 
         expect(result).toEqual([1, 2, 3]);
     });
 });
+

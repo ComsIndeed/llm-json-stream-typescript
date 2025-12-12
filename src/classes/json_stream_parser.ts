@@ -8,30 +8,30 @@
  */
 
 import {
+    ArrayPropertyStreamController,
     BooleanPropertyStreamController,
-    ListPropertyStreamController,
-    MapPropertyStreamController,
     NullPropertyStreamController,
     NumberPropertyStreamController,
+    ObjectPropertyStreamController,
     PropertyStreamController,
     StringPropertyStreamController,
 } from "./property_stream_controller.js";
 import {
+    ArrayPropertyStream,
     BooleanPropertyStream,
-    ListPropertyStream,
-    MapPropertyStream,
     NullPropertyStream,
     NumberPropertyStream,
+    ObjectPropertyStream,
     PropertyStream,
     StringPropertyStream,
 } from "./property_stream.js";
 import { PropertyDelegate } from "./property_delegates/property_delegate.js";
-import { MapPropertyDelegate } from "./property_delegates/map_property_delegate.js";
-import { ListPropertyDelegate } from "./property_delegates/list_property_delegate.js";
+import { ObjectPropertyDelegate } from "./property_delegates/object_property_delegate.js";
+import { ArrayPropertyDelegate } from "./property_delegates/array_property_delegate.js";
 
 /**
  * Controller interface for coordinating parsing operations.
- * Internal use only - not exposed in public API.
+ * Internal use only - not exposed in pub   lic API.
  */
 export class JsonStreamParserController {
     constructor(
@@ -49,8 +49,8 @@ export class JsonStreamParserController {
                 | "number"
                 | "boolean"
                 | "null"
-                | "map"
-                | "list",
+                | "object"
+                | "array",
         ) => PropertyStream<any>,
         private completePropertyFn: <T>(propertyPath: string, value: T) => void,
     ) {}
@@ -67,7 +67,13 @@ export class JsonStreamParserController {
 
     getPropertyStream(
         propertyPath: string,
-        streamType: "string" | "number" | "boolean" | "null" | "map" | "list",
+        streamType:
+            | "string"
+            | "number"
+            | "boolean"
+            | "null"
+            | "object"
+            | "array",
     ): PropertyStream<any> {
         return this.getPropertyStreamFn(propertyPath, streamType);
     }
@@ -237,21 +243,21 @@ export class JsonStreamParser {
     }
 
     /**
-     * Gets a stream for a map/object property at the specified propertyPath.
+     * Gets a stream for an object property at the specified propertyPath.
      */
-    getMapProperty(propertyPath: string): MapPropertyStream {
+    getObjectProperty(propertyPath: string): ObjectPropertyStream {
         this.checkDisposed();
         const existing = this.propertyControllers.get(propertyPath);
         if (existing) {
-            if (!(existing instanceof MapPropertyStreamController)) {
+            if (!(existing instanceof ObjectPropertyStreamController)) {
                 throw new Error(
-                    `Property at path ${propertyPath} is not a MapPropertyStream`,
+                    `Property at path ${propertyPath} is not a ObjectPropertyStream`,
                 );
             }
             return existing.propertyStream;
         }
 
-        const controller = new MapPropertyStreamController(
+        const controller = new ObjectPropertyStreamController(
             this.controller,
             propertyPath,
         );
@@ -260,21 +266,21 @@ export class JsonStreamParser {
     }
 
     /**
-     * Gets a stream for a list/array property at the specified propertyPath.
+     * Gets a stream for an array property at the specified propertyPath.
      */
-    getListProperty<T = any>(propertyPath: string): ListPropertyStream<T> {
+    getArrayProperty<T = any>(propertyPath: string): ArrayPropertyStream<T> {
         this.checkDisposed();
         const existing = this.propertyControllers.get(propertyPath);
         if (existing) {
-            if (!(existing instanceof ListPropertyStreamController)) {
+            if (!(existing instanceof ArrayPropertyStreamController)) {
                 throw new Error(
-                    `Property at path ${propertyPath} is not a ListPropertyStream`,
+                    `Property at path ${propertyPath} is not a ArrayPropertyStream`,
                 );
             }
-            return existing.propertyStream as ListPropertyStream<T>;
+            return existing.propertyStream as ArrayPropertyStream<T>;
         }
 
-        const controller = new ListPropertyStreamController<T>(
+        const controller = new ArrayPropertyStreamController<T>(
             this.controller,
             propertyPath,
         );
@@ -358,13 +364,13 @@ export class JsonStreamParser {
                 }
 
                 if (character === "{") {
-                    this.rootDelegate = new MapPropertyDelegate(
+                    this.rootDelegate = new ObjectPropertyDelegate(
                         "",
                         this.controller,
                     );
                     this.rootDelegate.addCharacter(character);
                 } else if (character === "[") {
-                    this.rootDelegate = new ListPropertyDelegate(
+                    this.rootDelegate = new ArrayPropertyDelegate(
                         "",
                         this.controller,
                     );
@@ -408,13 +414,13 @@ export class JsonStreamParser {
 
         if (controller instanceof StringPropertyStreamController) {
             controller.addChunk(params.chunk as string);
-        } else if (controller instanceof MapPropertyStreamController) {
-            // Maps emit snapshots - push to async iterator without completing
+        } else if (controller instanceof ObjectPropertyStreamController) {
+            // Objects emit snapshots - push to async iterator without completing
             controller.propertyStream._pushValue(
                 params.chunk as Record<string, any>,
             );
-        } else if (controller instanceof ListPropertyStreamController) {
-            // Lists emit snapshots - push to async iterator without completing
+        } else if (controller instanceof ArrayPropertyStreamController) {
+            // Arrays emit snapshots - push to async iterator without completing
             controller.propertyStream._pushValue(params.chunk as any[]);
         }
         // Numbers, booleans, and nulls don't receive chunks - they complete directly
@@ -428,7 +434,13 @@ export class JsonStreamParser {
 
     private getPropertyStreamForPath(
         propertyPath: string,
-        streamType: "string" | "number" | "boolean" | "null" | "map" | "list",
+        streamType:
+            | "string"
+            | "number"
+            | "boolean"
+            | "null"
+            | "object"
+            | "array",
     ): PropertyStream<any> {
         // Check for existing controller with incompatible type
         const existing = this.propertyControllers.get(propertyPath);
@@ -442,10 +454,10 @@ export class JsonStreamParser {
                     existing instanceof BooleanPropertyStreamController) ||
                 (streamType === "null" &&
                     existing instanceof NullPropertyStreamController) ||
-                (streamType === "map" &&
-                    existing instanceof MapPropertyStreamController) ||
-                (streamType === "list" &&
-                    existing instanceof ListPropertyStreamController);
+                (streamType === "object" &&
+                    existing instanceof ObjectPropertyStreamController) ||
+                (streamType === "array" &&
+                    existing instanceof ArrayPropertyStreamController);
 
             if (isCompatible) {
                 return existing.propertyStream;
@@ -469,10 +481,10 @@ export class JsonStreamParser {
                 return this.getBooleanProperty(propertyPath);
             case "null":
                 return this.getNullProperty(propertyPath);
-            case "map":
-                return this.getMapProperty(propertyPath);
-            case "list":
-                return this.getListProperty(propertyPath);
+            case "object":
+                return this.getObjectProperty(propertyPath);
+            case "array":
+                return this.getArrayProperty(propertyPath);
             default:
                 throw new Error(`Unknown stream type: ${streamType}`);
         }
@@ -490,9 +502,9 @@ export class JsonStreamParser {
             controller.complete(value as unknown as boolean);
         } else if (controller instanceof NullPropertyStreamController) {
             controller.complete(value as unknown as null);
-        } else if (controller instanceof MapPropertyStreamController) {
+        } else if (controller instanceof ObjectPropertyStreamController) {
             controller.complete(value as unknown as Record<string, any>);
-        } else if (controller instanceof ListPropertyStreamController) {
+        } else if (controller instanceof ArrayPropertyStreamController) {
             controller.complete(value as unknown as any[]);
         }
     }

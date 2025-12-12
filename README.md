@@ -161,14 +161,14 @@ for await (const chunk of parser.getStringProperty('response')) {
 Add items to your UI **the instant parsing begins**—even before their content arrives:
 
 ```typescript
-const listStream = parser.getListProperty('articles');
+const listStream = parser.getArrayProperty('articles');
 
 listStream.onElement(async (article, index) => {
   // Fires IMMEDIATELY when "[{" is detected
   addArticlePlaceholder(index);
   
   // Fill in content as it streams (cast to access nested properties)
-  const mapStream = article as MapPropertyStream;
+  const mapStream = article as ObjectPropertyStream;
   for await (const chunk of mapStream.getStringProperty('title')) {
     updateArticleTitle(index, chunk);
   }
@@ -183,7 +183,7 @@ listStream.onElement(async (article, index) => {
 Maps support an `onProperty` callback that fires when each property starts parsing:
 
 ```typescript
-const mapStream = parser.getMapProperty('user');
+const mapStream = parser.getObjectProperty('user');
 
 mapStream.onProperty((property, key) => {
   // Fires IMMEDIATELY when a property key is discovered
@@ -207,8 +207,8 @@ parser.getStringProperty('name')      // String → streams chunks
 parser.getNumberProperty('age')       // Number → int or double
 parser.getBooleanProperty('active')   // Boolean  
 parser.getNullProperty('deleted')     // Null
-parser.getMapProperty('config')       // Object → Record<string, any>
-parser.getListProperty('tags')        // Array → any[]
+parser.getObjectProperty('config')       // Object → Record<string, any>
+parser.getArrayProperty('tags')        // Array → any[]
 ```
 
 ### ⛓️ Flexible API
@@ -217,7 +217,7 @@ Navigate complex structures with chained access:
 
 ```typescript
 // Chain getters together
-const user = parser.getMapProperty('user');
+const user = parser.getObjectProperty('user');
 const name = await user.getStringProperty('name').promise;
 const email = await user.getStringProperty('email').promise;
 
@@ -230,9 +230,9 @@ const city = await parser.getStringProperty('user.address.city').promise;
 Handle dynamic list elements with type casts:
 
 ```typescript
-parser.getListProperty('items').onElement(async (element, index) => {
+parser.getArrayProperty('items').onElement(async (element, index) => {
   // Cast to appropriate type to access type-specific methods
-  const mapElement = element as MapPropertyStream;
+  const mapElement = element as ObjectPropertyStream;
   
   for await (const chunk of mapElement.getStringProperty('title')) {
     updateTitle(index, chunk);
@@ -248,7 +248,7 @@ parser.getListProperty('items').onElement(async (element, index) => {
 Property streams offer two modes to handle different subscription timing scenarios:
 
 ```typescript
-const items = parser.getListProperty('items');
+const items = parser.getArrayProperty('items');
 
 // Recommended: Buffered iteration (replays values to new subscribers)
 for await (const snapshot of items) {
@@ -295,7 +295,7 @@ This is especially useful when:
 A realistic scenario: parsing a blog post with streaming title and reactive sections.
 
 ```typescript
-import { JsonStreamParser, StringPropertyStream, MapPropertyStream } from 'llm_json_stream';
+import { JsonStreamParser, StringPropertyStream, ObjectPropertyStream } from 'llm_json_stream';
 
 async function main() {
   // Your LLM stream (OpenAI, Claude, Gemini, etc.)
@@ -312,10 +312,10 @@ async function main() {
   })();
   
   // Sections appear the moment they start
-  parser.getListProperty('sections').onElement(async (section, index) => {
+  parser.getArrayProperty('sections').onElement(async (section, index) => {
     console.log(`Section ${index} detected!`);
     
-    const sectionMap = section as MapPropertyStream;
+    const sectionMap = section as ObjectPropertyStream;
     
     for await (const chunk of sectionMap.getStringProperty('heading')) {
       console.log(`  Heading chunk: ${chunk}`);
@@ -327,7 +327,7 @@ async function main() {
   });
   
   // Wait for completion
-  const allSections = await parser.getListProperty('sections').promise;
+  const allSections = await parser.getArrayProperty('sections').promise;
   console.log(`Done! Got ${allSections.length} sections`);
   
   await parser.dispose();
@@ -346,8 +346,8 @@ async function main() {
 | `.getNumberProperty(path)` | `NumberPropertyStream` | Complete number value |
 | `.getBooleanProperty(path)` | `BooleanPropertyStream` | Boolean value |
 | `.getNullProperty(path)` | `NullPropertyStream` | Null value |
-| `.getMapProperty(path)` | `MapPropertyStream` | Object with nested access |
-| `.getListProperty(path)` | `ListPropertyStream` | Array with element callbacks |
+| `.getObjectProperty(path)` | `ObjectPropertyStream` | Object with nested access |
+| `.getArrayProperty(path)` | `ArrayPropertyStream` | Array with element callbacks |
 
 ### PropertyStream Interface
 
@@ -360,7 +360,7 @@ for await (const value of propertyStream.unbuffered()) { ... }  // Unbuffered
 const complete = await propertyStream.promise;
 ```
 
-### ListPropertyStream
+### ArrayPropertyStream
 
 ```typescript
 listStream.onElement((element, index) => {
@@ -368,7 +368,7 @@ listStream.onElement((element, index) => {
 });
 ```
 
-### MapPropertyStream
+### ObjectPropertyStream
 
 ```typescript
 mapStream.onProperty((property, key) => {
@@ -512,8 +512,8 @@ This package implements a **character-by-character JSON state machine** with a r
 - `NumberPropertyStream` - Emits complete number values
 - `BooleanPropertyStream` - Emits boolean values
 - `NullPropertyStream` - Emits null values
-- `MapPropertyStream` - Provides access to object properties
-- `ListPropertyStream` - Provides reactive array handling with `onElement` callbacks
+- `ObjectPropertyStream` - Provides access to object properties
+- `ArrayPropertyStream` - Provides reactive array handling with `onElement` callbacks
 
 #### 3. **Property Delegates** (Internal State Machine)
 Delegates handle character-by-character parsing for each JSON type:
@@ -612,3 +612,4 @@ MIT — see [LICENSE](LICENSE)
 ## Credits
 
 This is a TypeScript port of the [Dart llm_json_stream package](https://pub.dev/packages/llm_json_stream).
+

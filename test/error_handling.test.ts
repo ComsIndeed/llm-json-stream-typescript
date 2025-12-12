@@ -40,7 +40,7 @@ describe("Edge Cases", () => {
             interval: 10,
         });
         const parser = new JsonStreamParser(stream);
-        expect(await parser.getMapProperty("").promise).toEqual({});
+        expect(await parser.getObjectProperty("").promise).toEqual({});
     });
 
     test("whitespace", async () => {
@@ -53,3 +53,4 @@ describe("Edge Cases", () => {
         expect(await parser.getNumberProperty("a").promise).toBe(1);
     });
 });
+

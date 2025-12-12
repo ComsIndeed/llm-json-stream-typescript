@@ -5,7 +5,7 @@
  * Uses async iterators as the primary streaming mechanism.
  */
 import { JsonStreamParserController } from "./json_stream_parser.js";
-import { BooleanPropertyStream, ListPropertyStream, MapPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream, } from "./property_stream.js";
+import { BooleanPropertyStream, ArrayPropertyStream, ObjectPropertyStream, NullPropertyStream, NumberPropertyStream, PropertyStream, StringPropertyStream, } from "./property_stream.js";
 /**
  * Base class for all property stream controllers.
  */
@@ -164,15 +164,15 @@ export class NullPropertyStreamController extends PropertyStreamController {
     }
 }
 /**
- * Controller for map/object property streams.
- * Maps emit snapshots as properties complete.
+ * Controller for object property streams.
+ * Objects emit snapshots as properties complete.
  */
-export class MapPropertyStreamController extends PropertyStreamController {
+export class ObjectPropertyStreamController extends PropertyStreamController {
     propertyStream;
     currentValue = {};
     constructor(parserController, propertyPath) {
         super(parserController, propertyPath);
-        this.propertyStream = new MapPropertyStream(this.completer.promise, parserController, propertyPath);
+        this.propertyStream = new ObjectPropertyStream(this.completer.promise, parserController, propertyPath);
     }
     /**
      * Notifies that a new property has started parsing.
@@ -204,15 +204,15 @@ export class MapPropertyStreamController extends PropertyStreamController {
     }
 }
 /**
- * Controller for list/array property streams.
- * Lists emit snapshots as elements complete.
+ * Controller for array property streams.
+ * Arrays emit snapshots as elements complete.
  */
-export class ListPropertyStreamController extends PropertyStreamController {
+export class ArrayPropertyStreamController extends PropertyStreamController {
     propertyStream;
     currentValue = [];
     constructor(parserController, propertyPath) {
         super(parserController, propertyPath);
-        this.propertyStream = new ListPropertyStream(this.completer.promise, parserController, propertyPath);
+        this.propertyStream = new ArrayPropertyStream(this.completer.promise, parserController, propertyPath);
     }
     /**
      * Notifies that a new element has started parsing.

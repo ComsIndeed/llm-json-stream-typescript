@@ -173,7 +173,7 @@ describe("Disposal Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const itemsStream = parser.getListProperty("items");
+        const itemsStream = parser.getArrayProperty("items");
 
         const callbacks: number[] = [];
         itemsStream.onElement((element, index) => {
@@ -197,7 +197,7 @@ describe("Disposal Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const dataStream = parser.getListProperty("data");
+        const dataStream = parser.getArrayProperty("data");
 
         await dataStream.promise;
         await parser.dispose();
@@ -206,3 +206,4 @@ describe("Disposal Tests", () => {
         expect(true).toBe(true);
     });
 });
+

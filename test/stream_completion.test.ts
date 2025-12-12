@@ -117,7 +117,7 @@ describe("Stream Completion Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const itemsStream = parser.getListProperty("items");
+        const itemsStream = parser.getArrayProperty("items");
 
         const elements: number[] = [];
         itemsStream.onElement((element, index) => {
@@ -138,8 +138,8 @@ describe("Stream Completion Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const outer = parser.getMapProperty("outer");
-        const middle = parser.getMapProperty("outer.middle");
+        const outer = parser.getObjectProperty("outer");
+        const middle = parser.getObjectProperty("outer.middle");
         const inner = parser.getStringProperty("outer.middle.inner");
 
         const [outerVal, middleVal, innerVal] = await Promise.all([
@@ -153,3 +153,4 @@ describe("Stream Completion Tests", () => {
         expect(outerVal).toEqual({ middle: { inner: "value" } });
     });
 });
+

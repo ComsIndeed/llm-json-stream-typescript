@@ -1,22 +1,7 @@
 /**
- * Delegate for parsing JSON array/list values.
+ * @deprecated Use array_property_delegate.ts instead
+ * This file is kept for backward compatibility only
  */
-import { PropertyDelegate } from "./property_delegate.js";
-import { JsonStreamParserController } from "../json_stream_parser.js";
-export declare class ListPropertyDelegate extends PropertyDelegate {
-    private static readonly VALUE_FIRST_CHARACTERS;
-    private state;
-    private index;
-    private isFirstCharacter;
-    private activeChildDelegate;
-    private currentList;
-    /** Tracks which elements have been filled with their final values */
-    private elementPaths;
-    constructor(propertyPath: string, parserController: JsonStreamParserController, onComplete?: () => void);
-    private get currentElementPath();
-    onChunkEnd(): void;
-    addCharacter(character: string): void;
-    private createDelegate;
-    private completeList;
-}
+export { ArrayPropertyDelegate as ListPropertyDelegate } from "./array_property_delegate.js";
+export { ArrayPropertyStreamController as ListPropertyStreamController } from "../property_stream_controller.js";
 //# sourceMappingURL=list_property_delegate.d.ts.map

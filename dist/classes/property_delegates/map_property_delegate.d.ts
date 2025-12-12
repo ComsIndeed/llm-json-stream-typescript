@@ -1,20 +1,7 @@
 /**
- * Delegate for parsing JSON object/map values.
+ * @deprecated Use object_property_delegate.ts instead
+ * This file is kept for backward compatibility only
  */
-import { PropertyDelegate } from "./property_delegate.js";
-import { JsonStreamParserController } from "../json_stream_parser.js";
-export declare class MapPropertyDelegate extends PropertyDelegate {
-    private state;
-    private firstCharacter;
-    private keyBuffer;
-    private activeChildDelegate;
-    private activeChildKey;
-    private keys;
-    private currentMap;
-    constructor(propertyPath: string, parserController: JsonStreamParserController, onComplete?: () => void);
-    onChunkEnd(): void;
-    addCharacter(character: string): void;
-    private createDelegate;
-    private completeMap;
-}
+export { ObjectPropertyDelegate as MapPropertyDelegate } from "./object_property_delegate.js";
+export { ObjectPropertyStreamController as MapPropertyStreamController } from "../property_stream_controller.js";
 //# sourceMappingURL=map_property_delegate.d.ts.map

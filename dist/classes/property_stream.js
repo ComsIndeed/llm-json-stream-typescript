@@ -274,10 +274,10 @@ export class StringPropertyStream extends PropertyStream {
     }
 }
 /**
- * A property stream for JSON object/map values.
+ * A property stream for JSON object values.
  * Provides onProperty callback for reacting to properties as they start parsing.
  */
-export class MapPropertyStream extends PropertyStream {
+export class ObjectPropertyStream extends PropertyStream {
     propertyPath;
     _onPropertyCallbacks = [];
     constructor(promise, parserController, propertyPath, iteratorController, iterator) {
@@ -285,13 +285,13 @@ export class MapPropertyStream extends PropertyStream {
         this.propertyPath = propertyPath;
     }
     /**
-     * Registers a callback that fires when each property in the map starts parsing.
+     * Registers a callback that fires when each property in the object starts parsing.
      * The callback receives the property stream for the value and the property key.
      *
      * @example
      * ```typescript
-     * const mapStream = parser.getMapProperty('user');
-     * mapStream.onProperty((property, key) => {
+     * const objectStream = parser.getObjectProperty('user');
+     * objectStream.onProperty((property, key) => {
      *   console.log(`Property ${key} discovered`);
      *   if (property instanceof StringPropertyStream) {
      *     for await (const chunk of property) {
@@ -317,7 +317,7 @@ export class MapPropertyStream extends PropertyStream {
  * A property stream for JSON array values.
  * Provides onElement callback for reacting to elements as they start parsing.
  */
-export class ListPropertyStream extends PropertyStream {
+export class ArrayPropertyStream extends PropertyStream {
     propertyPath;
     _onElementCallbacks = [];
     constructor(promise, parserController, propertyPath, iteratorController, iterator) {
@@ -330,8 +330,8 @@ export class ListPropertyStream extends PropertyStream {
      *
      * @example
      * ```typescript
-     * const listStream = parser.getListProperty('items');
-     * listStream.onElement((element, index) => {
+     * const arrayStream = parser.getArrayProperty('items');
+     * arrayStream.onElement((element, index) => {
      *   console.log(`Element ${index} discovered`);
      *   for await (const snapshot of element) {
      *     console.log(`Element ${index}: ${snapshot}`);

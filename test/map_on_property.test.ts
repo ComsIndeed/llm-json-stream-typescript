@@ -3,14 +3,14 @@ import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
 import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
 import {
     BooleanPropertyStream,
-    ListPropertyStream,
-    MapPropertyStream,
+    ArrayPropertyStream,
+    ObjectPropertyStream,
     NullPropertyStream,
     NumberPropertyStream,
     StringPropertyStream,
 } from "../src/classes/property_stream.js";
 
-describe("MapPropertyStream.onProperty", () => {
+describe("ObjectPropertyStream.onProperty", () => {
     test("fires callback for each property in a map", async () => {
         const input = '{"name":"Alice","age":30,"active":true}';
 
@@ -21,7 +21,7 @@ describe("MapPropertyStream.onProperty", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const mapStream = parser.getMapProperty("");
+        const mapStream = parser.getObjectProperty("");
         const discoveredProperties: string[] = [];
         const propertyTypes: Record<string, string> = {};
 
@@ -49,7 +49,7 @@ describe("MapPropertyStream.onProperty", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const mapStream = parser.getMapProperty("");
+        const mapStream = parser.getObjectProperty("");
         const values: Record<string, any> = {};
         const valuePromises: Promise<void>[] = [];
 
@@ -77,9 +77,9 @@ describe("MapPropertyStream.onProperty", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const rootMap = parser.getMapProperty("");
-        const userMap = parser.getMapProperty("user");
-        const addressMap = parser.getMapProperty("user.address");
+        const rootMap = parser.getObjectProperty("");
+        const userMap = parser.getObjectProperty("user");
+        const addressMap = parser.getObjectProperty("user.address");
 
         const rootProps: string[] = [];
         const userProps: string[] = [];
@@ -120,7 +120,7 @@ describe("MapPropertyStream.onProperty", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const mapStream = parser.getMapProperty("");
+        const mapStream = parser.getObjectProperty("");
         const propertyTypes: Record<string, string> = {};
 
         mapStream.onProperty((property, key) => {
@@ -130,8 +130,8 @@ describe("MapPropertyStream.onProperty", () => {
         const result = await mapStream.promise;
 
         expect(result).toEqual({ items: [1, 2, 3], names: ["a", "b"] });
-        expect(propertyTypes["items"]).toBe("ListPropertyStream");
-        expect(propertyTypes["names"]).toBe("ListPropertyStream");
+        expect(propertyTypes["items"]).toBe("ArrayPropertyStream");
+        expect(propertyTypes["names"]).toBe("ArrayPropertyStream");
     });
 
     test("handles maps with null and boolean values", async () => {
@@ -144,7 +144,7 @@ describe("MapPropertyStream.onProperty", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const mapStream = parser.getMapProperty("");
+        const mapStream = parser.getObjectProperty("");
         const propertyTypes: Record<string, string> = {};
 
         mapStream.onProperty((property, key) => {
@@ -169,7 +169,7 @@ describe("MapPropertyStream.onProperty", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const mapStream = parser.getMapProperty("");
+        const mapStream = parser.getObjectProperty("");
         const callback1Keys: string[] = [];
         const callback2Keys: string[] = [];
 
@@ -197,7 +197,7 @@ describe("MapPropertyStream.onProperty", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const emptyMap = parser.getMapProperty("empty");
+        const emptyMap = parser.getObjectProperty("empty");
         const properties: string[] = [];
 
         emptyMap.onProperty((_, key) => {
@@ -221,7 +221,7 @@ describe("MapPropertyStream.onProperty", () => {
         });
         const parser = new JsonStreamParser(stream);
 
-        const mapStream = parser.getMapProperty("");
+        const mapStream = parser.getObjectProperty("");
         let callbackFiredTime = Date.now();
         let futureCompleteTime = Date.now();
 
@@ -236,3 +236,4 @@ describe("MapPropertyStream.onProperty", () => {
         expect(callbackFiredTime).toBeLessThanOrEqual(futureCompleteTime);
     });
 });
+

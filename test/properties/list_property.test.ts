@@ -20,7 +20,7 @@ describe("List Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const numbersStream = parser.getListProperty("numbers");
+        const numbersStream = parser.getArrayProperty("numbers");
 
         const finalValue = await numbersStream.promise;
         expect(finalValue).toEqual([1, 2, 3]);
@@ -35,7 +35,7 @@ describe("List Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const itemsStream = parser.getListProperty("items");
+        const itemsStream = parser.getArrayProperty("items");
 
         const finalValue = await itemsStream.promise;
         expect(finalValue).toEqual([]);
@@ -50,7 +50,7 @@ describe("List Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const namesStream = parser.getListProperty("names");
+        const namesStream = parser.getArrayProperty("names");
 
         const finalValue = await namesStream.promise;
         expect(finalValue).toEqual(["Alice", "Bob", "Charlie"]);
@@ -65,7 +65,7 @@ describe("List Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const usersStream = parser.getListProperty("users");
+        const usersStream = parser.getArrayProperty("users");
 
         const finalValue = await usersStream.promise;
         expect(finalValue).toEqual([{ name: "Alice" }, { name: "Bob" }]);
@@ -80,7 +80,7 @@ describe("List Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const matrixStream = parser.getListProperty("matrix");
+        const matrixStream = parser.getArrayProperty("matrix");
 
         const finalValue = await matrixStream.promise;
         expect(finalValue).toEqual([[1, 2], [3, 4]]);
@@ -95,7 +95,7 @@ describe("List Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const mixedStream = parser.getListProperty("mixed");
+        const mixedStream = parser.getArrayProperty("mixed");
 
         const finalValue = await mixedStream.promise;
         expect(finalValue).toEqual([1, "text", true, null]);
@@ -134,7 +134,7 @@ describe("List Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const itemsStream = parser.getListProperty("items");
+        const itemsStream = parser.getArrayProperty("items");
 
         const callbackFired: number[] = [];
         itemsStream.onElement((element, index) => {
@@ -155,7 +155,7 @@ describe("List Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const dataStream = parser.getListProperty("data");
+        const dataStream = parser.getArrayProperty("data");
 
         const indices: number[] = [];
         dataStream.onElement((element, index) => {
@@ -198,7 +198,7 @@ describe("List Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const deepArray = parser.getListProperty("level1[0].level2[0].level3");
+        const deepArray = parser.getArrayProperty("level1[0].level2[0].level3");
 
         const finalValue = await deepArray.promise;
         expect(finalValue).toEqual([1, 2, 3]);
@@ -214,7 +214,7 @@ describe("List Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const numbersStream = parser.getListProperty("numbers");
+        const numbersStream = parser.getArrayProperty("numbers");
 
         const finalValue = await numbersStream.promise;
         expect(finalValue).toEqual(numbers);
@@ -230,7 +230,7 @@ describe("List Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const itemsStream = parser.getListProperty("items");
+        const itemsStream = parser.getArrayProperty("items");
 
         // Collect all snapshots using async iterator
         const snapshots: any[][] = [];
@@ -244,3 +244,4 @@ describe("List Property Tests", () => {
         expect(snapshots[snapshots.length - 1]).toEqual([1, 2, 3]);
     });
 });
+

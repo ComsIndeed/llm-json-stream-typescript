@@ -20,7 +20,7 @@ describe("Map Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const rootStream = parser.getMapProperty("");
+        const rootStream = parser.getObjectProperty("");
 
         const finalValue = await rootStream.promise;
         expect(finalValue).toEqual({ name: "Alice", age: 30 });
@@ -35,7 +35,7 @@ describe("Map Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const dataStream = parser.getMapProperty("data");
+        const dataStream = parser.getObjectProperty("data");
 
         const finalValue = await dataStream.promise;
         expect(finalValue).toEqual({});
@@ -50,7 +50,7 @@ describe("Map Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const profileStream = parser.getMapProperty("user.profile");
+        const profileStream = parser.getObjectProperty("user.profile");
 
         const finalValue = await profileStream.promise;
         expect(finalValue).toEqual({ name: "Bob" });
@@ -65,7 +65,7 @@ describe("Map Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const rootStream = parser.getMapProperty("");
+        const rootStream = parser.getObjectProperty("");
 
         const finalValue = await rootStream.promise;
         expect(finalValue).toEqual({
@@ -85,7 +85,7 @@ describe("Map Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const deepStream = parser.getMapProperty("a.b.c.d");
+        const deepStream = parser.getObjectProperty("a.b.c.d");
 
         const finalValue = await deepStream.promise;
         expect(finalValue).toEqual({ e: "deep" });
@@ -147,7 +147,7 @@ describe("Map Property Tests", () => {
         });
 
         const parser = new JsonStreamParser(stream);
-        const rootStream = parser.getMapProperty("");
+        const rootStream = parser.getObjectProperty("");
 
         // Collect all snapshots using async iterator
         const snapshots: Record<string, any>[] = [];
@@ -164,3 +164,4 @@ describe("Map Property Tests", () => {
         });
     });
 });
+

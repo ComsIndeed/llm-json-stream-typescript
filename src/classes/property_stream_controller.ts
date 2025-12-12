@@ -7,11 +7,11 @@
 
 import { JsonStreamParserController } from "./json_stream_parser.js";
 import {
+    ArrayPropertyStream,
     BooleanPropertyStream,
-    ListPropertyStream,
-    MapPropertyStream,
     NullPropertyStream,
     NumberPropertyStream,
+    ObjectPropertyStream,
     PropertyStream,
     StringPropertyStream,
 } from "./property_stream.js";
@@ -226,12 +226,12 @@ export class NullPropertyStreamController
 }
 
 /**
- * Controller for map/object property streams.
- * Maps emit snapshots as properties complete.
+ * Controller for object property streams.
+ * Objects emit snapshots as properties complete.
  */
-export class MapPropertyStreamController
+export class ObjectPropertyStreamController
     extends PropertyStreamController<Record<string, any>> {
-    readonly propertyStream: MapPropertyStream;
+    readonly propertyStream: ObjectPropertyStream;
     private currentValue: Record<string, any> = {};
 
     constructor(
@@ -239,7 +239,7 @@ export class MapPropertyStreamController
         propertyPath: string,
     ) {
         super(parserController, propertyPath);
-        this.propertyStream = new MapPropertyStream(
+        this.propertyStream = new ObjectPropertyStream(
             this.completer.promise,
             parserController,
             propertyPath,
@@ -278,12 +278,12 @@ export class MapPropertyStreamController
 }
 
 /**
- * Controller for list/array property streams.
- * Lists emit snapshots as elements complete.
+ * Controller for array property streams.
+ * Arrays emit snapshots as elements complete.
  */
-export class ListPropertyStreamController<T = any>
+export class ArrayPropertyStreamController<T = any>
     extends PropertyStreamController<T[]> {
-    readonly propertyStream: ListPropertyStream<T>;
+    readonly propertyStream: ArrayPropertyStream<T>;
     private currentValue: T[] = [];
 
     constructor(
@@ -291,7 +291,7 @@ export class ListPropertyStreamController<T = any>
         propertyPath: string,
     ) {
         super(parserController, propertyPath);
-        this.propertyStream = new ListPropertyStream<T>(
+        this.propertyStream = new ArrayPropertyStream<T>(
             this.completer.promise,
             parserController,
             propertyPath,
