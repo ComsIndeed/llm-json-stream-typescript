@@ -16,5 +16,11 @@
   "bugs": {
     "url": "https://github.com/ComsIndeed/llm-json-stream-typescript/issues"
   },
-  "homepage": "https://github.com/ComsIndeed/llm-json-stream-typescript#readme"
+  "homepage": "https://github.com/ComsIndeed/llm-json-stream-typescript#readme",
+  "scripts": {
+    "dev": "pnpm -F web-demo dev",
+    "build:parser": "pnpm -F llm-json-stream build",
+    "watch:parser": "pnpm -F llm-json-stream build --watch",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules"
+  }
 }

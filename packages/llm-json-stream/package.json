@@ -4,6 +4,7 @@
   "description": "Cross-platform streaming JSON parser for TypeScript optimized for LLM responses. Works on Node.js, Deno, Bun, browsers, and edge runtimes.",
   "type": "module",
   "main": "./dist/index.js",
+  ".": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc",
