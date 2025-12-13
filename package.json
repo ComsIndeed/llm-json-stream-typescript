@@ -18,9 +18,13 @@
   },
   "homepage": "https://github.com/ComsIndeed/llm-json-stream-typescript#readme",
   "scripts": {
-    "dev": "pnpm -F web-demo dev",
+    "dev:demo": "pnpm -F web-demo dev",
+    "dev": "concurrently \"pnpm -F llm-json-stream build --watch\" \"pnpm -F web-demo dev\"",
     "build:parser": "pnpm -F llm-json-stream build",
     "watch:parser": "pnpm -F llm-json-stream build --watch",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

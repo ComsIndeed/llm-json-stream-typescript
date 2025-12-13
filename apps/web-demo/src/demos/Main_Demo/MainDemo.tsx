@@ -81,23 +81,16 @@ function MainDemo() {
             }
         }
 
-        // Create a parser instance
         const parser = new JsonStreamParser(tappedStream());
 
-        // Track all async tasks so we can log once everything settles.
         const tasks: Promise<unknown>[] = []
 
-        // IMPORTANT:
-        // Many streaming parsers treat each accessor call as a new subscription.
-        // So DO NOT call parser.getStringProperty("...") multiple times for the same path.
-        // Create the accessor once and reuse it for stream iteration + promise.
         const nameProp = parser.getStringProperty("name")
         const descriptionProp = parser.getStringProperty("description")
         const colorProp = parser.getStringProperty("details.color")
         const weightProp = parser.getStringProperty("details.weight")
         const tagsProp = parser.getArrayProperty("tags")
 
-        // Set up the various listeners
         tasks.push((async () => {
             for await (const nameChunk of nameProp) {
                 if (abortControllerRef.current?.signal.aborted) break;
@@ -105,9 +98,6 @@ function MainDemo() {
                 setNameStreamValue(prev => prev + nameChunk);
             }
         })());
-
-
-        // NOTE: raw stream is accumulated inside tappedStream(); no separate task needed.
 
         tasks.push((async () => {
             for await (const descriptionChunk of descriptionProp) {
