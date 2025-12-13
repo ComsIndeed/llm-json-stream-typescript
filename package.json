@@ -1,0 +1,20 @@
+{
+  "name": "llm-json-stream-typescript",
+  "version": "0.0.0",
+  "description": "Monorepo for the TypeScript port of llm-json-stream",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ComsIndeed/llm-json-stream-typescript.git"
+  },
+  "author": "ComsIndeed",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ComsIndeed/llm-json-stream-typescript/issues"
+  },
+  "homepage": "https://github.com/ComsIndeed/llm-json-stream-typescript#readme"
+}
