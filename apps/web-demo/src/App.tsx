@@ -24,7 +24,7 @@ function App() {
 
   return (
     <div>
-      <nav>
+      <nav style={{ position: 'absolute', bottom: 0 }}>
         <button onClick={() => setSelectedDemo('MainDemo')}>Main Demo</button>
         <button onClick={() => setSelectedDemo('UiGenDemo')}>UI Gen Demo</button>
         <button onClick={() => setSelectedDemo('ChatDemo')}>Chat Demo</button>
