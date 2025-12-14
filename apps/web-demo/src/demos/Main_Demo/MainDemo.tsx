@@ -109,4 +109,5 @@ export const cardStyle: React.CSSProperties = {
     padding: '16px',
     backgroundColor: '#ffffff15',
     margin: '8px',
+    'transition': 'all 0.3s ease-in-out',
 }

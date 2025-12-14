@@ -50,17 +50,27 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
             setImageGeneratedWith((prev) => prev + value);
         });
 
-        // Features: easiest is to await the full list, then render.
-        // This still demonstrates the advantage: other fields stream live.
-        void parser.getArrayProperty("features").promise.then((arr) => {
-            const normalized: string[] = Array.isArray(arr)
-                ? arr.map((x) => String(x))
-                : [];
-            setFeatures(normalized);
+        parser.getArrayProperty("features").onElement((elementStream) => {
+            let elementIndex = -1;
+
+            setFeatures((prev) => {
+                elementIndex = prev.length;
+                return [...prev, ""];
+            });
+
+            void listenTo(elementStream, (value) => {
+                setFeatures((current) => {
+                    if (elementIndex < 0 || elementIndex >= current.length) return current;
+
+                    const next = current.slice();
+                    next[elementIndex] = (next[elementIndex] ?? "") + value;
+                    return next;
+                });
+            });
         });
     }, [parser]);
 
-    const displayTitle = title || "Untitled";
+    const displayTitle = title || " ";
 
     return (
         <div
@@ -114,7 +124,7 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
                             fontSize: 12,
                         }}
                     >
-                        Created by: {imageGeneratedWith || author || "LLM"}
+                        Created by: {imageGeneratedWith || author || " "}
                     </div>
                 </div>
             ) : null}
@@ -141,7 +151,7 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
                         opacity: description ? 1 : 0.7,
                     }}
                 >
-                    {description || "Streaming description…"}
+                    {description || " "}
                 </p>
 
                 {features.length > 0 && (
