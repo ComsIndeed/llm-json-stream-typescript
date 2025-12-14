@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { JsonStreamParser } from "../../../../../packages/llm-json-stream/dist";
 import { listenTo } from "../../utils/listenTo";
 import { cardStyle } from "./MainDemo";
@@ -17,14 +17,8 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
     const [imageGeneratedWith, setImageGeneratedWith] = useState<string>("");
     const [featureItems, setFeatureItems] = useState<FeatureItem[]>([]);
 
-    // Create a fresh parser when the stream changes.
-    const parser = useMemo(() => {
-        if (!props.parserStream) return null;
-        return new JsonStreamParser(props.parserStream);
-    }, [props.parserStream]);
-
     useEffect(() => {
-        if (!parser) {
+        if (!props.parserStream) {
             // Reset all values when stream is cleared
             setTitle("");
             setAuthor("");
@@ -35,6 +29,9 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
             return;
         }
 
+        // 1. INSTANTIATE INSIDE USEEFFECT
+        const parser = new JsonStreamParser(props.parserStream);
+
         // Reset values on new stream.
         setTitle("");
         setAuthor("");
@@ -43,8 +40,7 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
         setImageGeneratedWith("");
         setFeatureItems([]);
 
-        // Fire-and-forget: we intentionally don't await these.
-        // (They stop naturally when the upstream iterable ends.)
+        // 2. REGISTER LISTENERS IMMEDIATELY (Synchronously after creation)
         void listenTo(parser.getStringProperty("title"), (value) => {
             setTitle((prev) => prev + value);
         }, { signal: props.abortController?.signal });
@@ -52,6 +48,7 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
         void listenTo(parser.getStringProperty("author"), (value) => {
             setAuthor((prev) => prev + value);
         }, { signal: props.abortController?.signal });
+
         void listenTo(parser.getStringProperty("description"), (value) => {
             setDescription((prev) => prev + value);
         }, { signal: props.abortController?.signal });
@@ -59,6 +56,7 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
         void listenTo(parser.getStringProperty("image.url"), (value) => {
             setImageUrl((prev) => prev + value);
         }, { signal: props.abortController?.signal });
+
         void listenTo(parser.getStringProperty("image.generated_with"), (value) => {
             setImageGeneratedWith((prev) => prev + value);
         }, { signal: props.abortController?.signal });
@@ -71,7 +69,12 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
                 );
             });
         });
-    }, [parser, props.abortController]);
+
+        // 3. CLEANUP
+        return () => {
+            parser.dispose();
+        };
+    }, [props.parserStream, props.abortController]); // Remove 'parser' dependency
 
     const displayTitle = title || " ";
 
@@ -89,8 +92,6 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
                 boxSizing: "border-box",
                 display: "flex",
                 flexDirection: "column",
-
-                // Smooth implicit resizing as content grows / wraps.
                 transition: "all 260ms ease",
             }}
         >
