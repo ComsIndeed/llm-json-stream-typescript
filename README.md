@@ -103,7 +103,7 @@ This library uses **only async iterables** (`AsyncIterable<string>`), making it 
 - ✅ **Cloudflare Workers** - Full support
 - ✅ **Edge runtimes** - Compatible with all edge computing platforms
 
-No Node.js `stream` module required! This avoids the compatibility issues that plague Node.js-specific libraries.
+**No polyfills required!** This library uses standard `AsyncIterable`, which is natively supported everywhere now. Unlike Node.js `stream` libraries that break in the browser, this works seamlessly across all platforms.
 
 ---
 
@@ -295,7 +295,7 @@ This is especially useful when:
 A realistic scenario: parsing a blog post with streaming title and reactive sections.
 
 ```typescript
-import { JsonStreamParser, StringPropertyStream, ObjectPropertyStream } from 'llm_json_stream';
+import { JsonStreamParser, StringPropertyStream, ObjectPropertyStream } from 'llm-json-stream';
 
 async function main() {
   // Your LLM stream (OpenAI, Claude, Gemini, etc.)
@@ -418,7 +418,7 @@ Battle-tested with comprehensive test coverage. Handles real-world edge cases:
 
 ```typescript
 import OpenAI from 'openai';
-import { JsonStreamParser } from 'llm_json_stream';
+import { JsonStreamParser } from 'llm-json-stream';
 
 const openai = new OpenAI();
 
@@ -446,7 +446,7 @@ const parser = new JsonStreamParser(openaiStream());
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import { JsonStreamParser } from 'llm_json_stream';
+import { JsonStreamParser } from 'llm-json-stream';
 
 const anthropic = new Anthropic();
 
@@ -475,7 +475,7 @@ const parser = new JsonStreamParser(claudeStream());
 
 ```typescript
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { JsonStreamParser } from 'llm_json_stream';
+import { JsonStreamParser } from 'llm-json-stream';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
@@ -588,7 +588,7 @@ npm run test:watch
 
 Contributions welcome!
 
-1. Check [open issues](https://github.com/ComsIndeed/llm_json_stream/issues)
+1. Check [open issues](https://github.com/ComsIndeed/llm-json-stream-typescript/issues)
 2. Open an issue before major changes  
 3. Run `npm test` before submitting
 4. Match existing code style
@@ -605,11 +605,10 @@ MIT — see [LICENSE](LICENSE)
 
 **Made for TypeScript developers building the next generation of AI-powered apps**
 
-[⭐ Star](https://github.com/ComsIndeed/llm_json_stream) · [📦 npm](https://www.npmjs.com/package/llm_json_stream) · [🐛 Issues](https://github.com/ComsIndeed/llm_json_stream/issues)
+[⭐ Star](https://github.com/ComsIndeed/llm-json-stream-typescript) · [📦 npm](https://www.npmjs.com/package/llm-json-stream) · [🐛 Issues](https://github.com/ComsIndeed/llm-json-stream-typescript/issues)
 
 </div>
 
 ## Credits
 
 This is a TypeScript port of the [Dart llm_json_stream package](https://pub.dev/packages/llm_json_stream).
-

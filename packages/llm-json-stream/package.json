@@ -1,13 +1,20 @@
 {
   "name": "llm-json-stream",
-  "version": "0.1.0",
+  "version": "0.0.1-beta.1",
   "description": "Cross-platform streaming JSON parser for TypeScript optimized for LLM responses. Works on Node.js, Deno, Bun, browsers, and edge runtimes.",
   "type": "module",
   "main": "./dist/index.js",
-  ".": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "bun test",
     "test:jest": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "bun test --watch"
@@ -29,11 +36,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ComsIndeed/llm_json_stream_typescript.git"
+    "url": "git+https://github.com/ComsIndeed/llm-json-stream-typescript.git"
   },
-  "homepage": "https://github.com/ComsIndeed/llm_json_stream_typescript#readme",
+  "homepage": "https://github.com/ComsIndeed/llm-json-stream-typescript#readme",
   "bugs": {
-    "url": "https://github.com/ComsIndeed/llm_json_stream_typescript/issues"
+    "url": "https://github.com/ComsIndeed/llm-json-stream-typescript/issues"
   },
   "files": [
     "dist",

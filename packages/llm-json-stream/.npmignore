@@ -1,0 +1,40 @@
+# Development files
+src/
+test/
+examples/
+
+# Config files
+tsconfig.json
+jest.config.ts
+.eslintrc*
+.prettierrc*
+
+# Build artifacts
+*.tsbuildinfo
+
+# Git files
+.git
+.gitignore
+
+# CI/CD
+.github/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencies
+node_modules/
+
+# Package manager locks
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
