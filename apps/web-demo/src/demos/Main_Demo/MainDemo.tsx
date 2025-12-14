@@ -27,7 +27,7 @@ const exampleJson = JSON.stringify({
 })
 
 export default function MainDemo() {
-    const [previewValue, setJsonStreamValue] = useState<string>("")
+    const [previewValue, setPreviewValue] = useState<string>("")
     const [traditionalParserIterable, setTraditionalParserIterable] = useState<AsyncIterable<string> | null>(null)
     const [streamingParserIterable, setStreamingParserIterable] = useState<AsyncIterable<string> | null>(null)
     const [resetStreamFn, setResetStream] = useState<() => void>(() => { })
@@ -36,6 +36,9 @@ export default function MainDemo() {
     const [chunkSize, setChunkSize] = useState<number>(5)
 
     const startStream = () => {
+        abortController?.abort();
+        setPreviewValue("");
+
         const controller = new AbortController();
         setAbortController(controller);
 
@@ -46,14 +49,14 @@ export default function MainDemo() {
             controller.abort()
             setTraditionalParserIterable(null);
             setStreamingParserIterable(null);
-            setJsonStreamValue("");
+            setPreviewValue("");
         });
 
         setTraditionalParserIterable(traditionalParser);
         setStreamingParserIterable(streamingParser);
 
         listenTo(preview, (value) => {
-            setJsonStreamValue((prev) => prev + value);
+            setPreviewValue((prev) => prev + value);
         }, { signal: controller.signal });
     }
 
