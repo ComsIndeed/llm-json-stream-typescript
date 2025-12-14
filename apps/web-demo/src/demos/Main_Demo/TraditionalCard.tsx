@@ -4,60 +4,42 @@ import { listenTo } from "../../utils/listenTo";
 
 type Parsed = { [key: string]: any } | null;
 
-export function TraditionalCard(props: { jsonStreamPreview: AsyncIterable<string> | null }) {
+export function TraditionalCard(props: { jsonStreamPreview: AsyncIterable<string> | null, abortController: AbortController | null }) {
     const [jsonStreamValue, setJsonStreamValue] = useState<string>("");
     const [parsedObj, setParsedObj] = useState<Parsed>(null);
-    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!props.jsonStreamPreview) {
             setJsonStreamValue("");
+            setParsedObj(null);
             return;
         }
 
         setJsonStreamValue("");
+        setParsedObj(null);
 
         void listenTo(props.jsonStreamPreview, (value) => {
             setJsonStreamValue((prev) => prev + value);
-        });
+        }, { signal: props.abortController?.signal });
     }, [props.jsonStreamPreview]);
 
     useEffect(() => {
         const s = jsonStreamValue ?? '';
         if (s.trim().length === 0) {
             setParsedObj(null);
-            setError(null);
             return;
         }
 
         try {
             const obj = JSON.parse(s);
             setParsedObj(obj);
-            setError(null);
         } catch (e: any) {
-            // Heuristic: only show a parse error once there's evidence the stream closed
-            // (a closing brace/bracket). While streaming partial JSON this avoids flashing errors.
-            if (s.includes('}') || s.includes(']')) {
-                setParsedObj(null);
-                setError(e?.message ?? String(e));
-            } else {
-                setParsedObj(null);
-                setError(null);
-            }
+            // Don't update state on parse error - keep showing loading screen
+            // Only update when JSON is valid
         }
     }, [jsonStreamValue]);
 
-    // Error state styling: full red background, yellow text for the error message
-    if (error) {
-        return (
-            <div style={{ ...cardStyle, backgroundColor: '#ff0000', color: '#ffeb3b', padding: 16, width: '100%', height: '100%', overflow: 'hidden', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
-                <h2 style={{ marginTop: 0 }}>Error parsing JSON</h2>
-                <pre style={{ whiteSpace: 'pre-wrap', margin: 0, color: '#ffeb3b', overflow: 'auto', flex: '1 1 auto', minHeight: 0 }}>{error}</pre>
-            </div>
-        );
-    }
-
-    // Placeholder while streaming
+    // Placeholder while streaming or on error
     if (!parsedObj) {
         return (
             <div style={{ ...cardStyle, color: '#ffffff', width: '100%', height: '100%', overflow: 'hidden', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>

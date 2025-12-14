@@ -30,24 +30,52 @@ export default function MainDemo() {
     const [previewValue, setJsonStreamValue] = useState<string>("")
     const [traditionalParserIterable, setTraditionalParserIterable] = useState<AsyncIterable<string> | null>(null)
     const [streamingParserIterable, setStreamingParserIterable] = useState<AsyncIterable<string> | null>(null)
+    const [resetStreamFn, setResetStream] = useState<() => void>(() => { })
+    const [abortController, setAbortController] = useState<AbortController | null>(null)
 
-    useEffect(() => {
-        if (hasRunMainDemoEffect) return
-        hasRunMainDemoEffect = true
+    const startStream = () => {
+        const controller = new AbortController();
+        setAbortController(controller);
 
-        // Create streams
         const iterable = streamTextInChunks(exampleJson, 5, 100);
         const [preview, traditionalParser, streamingParser] = multicastAsyncIterable(iterable, 3);
+
+        setResetStream(() => () => {
+            controller.abort()
+            setTraditionalParserIterable(null);
+            setStreamingParserIterable(null);
+            setJsonStreamValue("");
+        });
 
         setTraditionalParserIterable(traditionalParser);
         setStreamingParserIterable(streamingParser);
 
-        // Update the full JSON stream as it comes in
         listenTo(preview, (value) => {
             setJsonStreamValue((prev) => prev + value);
-        })
+        }, { signal: controller.signal });
+    }
 
+    useEffect(() => {
+        if (hasRunMainDemoEffect) return
+        hasRunMainDemoEffect = true
+        startStream()
     }, [])
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (e.shiftKey) {
+                    resetStreamFn();
+                } else {
+                    startStream();
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [resetStreamFn])
 
     return (
         <div
@@ -71,6 +99,10 @@ export default function MainDemo() {
                 <div style={cardStyle}>
                     <h2 style={{ marginTop: 0 }}>LLM JSON Stream</h2>
                     <JsonStreamCodeView jsonStreamFullValue={exampleJson} jsonStreamValue={previewValue} textStyle={{ fontSize: 14 }} />
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                        <button onClick={startStream}>Start Stream (Space)</button>
+                        <button onClick={resetStreamFn}>Reset (Shift+Space)</button>
+                    </div>
                 </div>
 
                 <div style={cardStyle}>
@@ -89,13 +121,13 @@ export default function MainDemo() {
                 <div style={{ flex: '1 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     <h3>Traditional Parsing</h3>
                     <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'hidden', display: 'flex' }}>
-                        <TraditionalCard jsonStreamPreview={traditionalParserIterable} />
+                        <TraditionalCard jsonStreamPreview={traditionalParserIterable} abortController={abortController} />
                     </div>
                 </div>
                 <div style={{ flex: '1 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     <h3>Stream Parsing</h3>
                     <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'hidden', display: 'flex' }}>
-                        <StreamingCard parserStream={streamingParserIterable} />
+                        <StreamingCard parserStream={streamingParserIterable} abortController={abortController} />
                     </div>
                 </div>
             </div>

@@ -2,14 +2,20 @@ import { useEffect, useMemo, useState } from "react";
 import { JsonStreamParser } from "../../../../../packages/llm-json-stream/dist";
 import { listenTo } from "../../utils/listenTo";
 import { cardStyle } from "./MainDemo";
+import { FeaturePill } from "./FeaturePill";
 
-export function StreamingCard(props: { parserStream: AsyncIterable<string> | null }) {
+type FeatureItem = {
+    index: number;
+    stream: AsyncIterable<any>;
+};
+
+export function StreamingCard(props: { parserStream: AsyncIterable<string> | null, abortController: AbortController | null }) {
     const [title, setTitle] = useState<string>("");
     const [author, setAuthor] = useState<string>("");
     const [description, setDescription] = useState<string>("");
     const [imageUrl, setImageUrl] = useState<string>("");
     const [imageGeneratedWith, setImageGeneratedWith] = useState<string>("");
-    const [features, setFeatures] = useState<string[]>([]);
+    const [featureItems, setFeatureItems] = useState<FeatureItem[]>([]);
 
     // Create a fresh parser when the stream changes.
     const parser = useMemo(() => {
@@ -18,7 +24,16 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
     }, [props.parserStream]);
 
     useEffect(() => {
-        if (!parser) return;
+        if (!parser) {
+            // Reset all values when stream is cleared
+            setTitle("");
+            setAuthor("");
+            setDescription("");
+            setImageUrl("");
+            setImageGeneratedWith("");
+            setFeatureItems([]);
+            return;
+        }
 
         // Reset values on new stream.
         setTitle("");
@@ -26,49 +41,37 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
         setDescription("");
         setImageUrl("");
         setImageGeneratedWith("");
-        setFeatures([]);
+        setFeatureItems([]);
 
         // Fire-and-forget: we intentionally don't await these.
         // (They stop naturally when the upstream iterable ends.)
         void listenTo(parser.getStringProperty("title"), (value) => {
             setTitle((prev) => prev + value);
-        });
+        }, { signal: props.abortController?.signal });
 
         void listenTo(parser.getStringProperty("author"), (value) => {
             setAuthor((prev) => prev + value);
-        });
-
+        }, { signal: props.abortController?.signal });
         void listenTo(parser.getStringProperty("description"), (value) => {
             setDescription((prev) => prev + value);
-        });
+        }, { signal: props.abortController?.signal });
 
         void listenTo(parser.getStringProperty("image.url"), (value) => {
             setImageUrl((prev) => prev + value);
-        });
-
+        }, { signal: props.abortController?.signal });
         void listenTo(parser.getStringProperty("image.generated_with"), (value) => {
             setImageGeneratedWith((prev) => prev + value);
-        });
+        }, { signal: props.abortController?.signal });
 
-        parser.getArrayProperty("features").onElement((elementStream) => {
-            let elementIndex = -1;
-
-            setFeatures((prev) => {
-                elementIndex = prev.length;
-                return [...prev, ""];
-            });
-
-            void listenTo(elementStream, (value) => {
-                setFeatures((current) => {
-                    if (elementIndex < 0 || elementIndex >= current.length) return current;
-
-                    const next = current.slice();
-                    next[elementIndex] = (next[elementIndex] ?? "") + value;
-                    return next;
-                });
+        parser.getArrayProperty("features").onElement((elementStream, index) => {
+            setFeatureItems((prev) => {
+                if (prev.some((p) => p.index === index)) return prev;
+                return [...prev, { index, stream: elementStream }].sort(
+                    (a, b) => a.index - b.index,
+                );
             });
         });
-    }, [parser]);
+    }, [parser, props.abortController]);
 
     const displayTitle = title || " ";
 
@@ -86,8 +89,19 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
                 boxSizing: "border-box",
                 display: "flex",
                 flexDirection: "column",
+
+                // Smooth implicit resizing as content grows / wraps.
+                transition: "all 260ms ease",
             }}
         >
+            <style>
+                {`
+                @keyframes pillIn {
+                    from { opacity: 0; transform: translateY(6px) scale(0.98); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                `}
+            </style>
             <h2 style={{ margin: 0, marginBottom: 12, textAlign: "center", flex: "0 0 auto" }}>
                 {displayTitle}
             </h2>
@@ -129,7 +143,15 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
                 </div>
             ) : null}
 
-            <div style={{ marginTop: 12, flex: "1 1 auto", minHeight: 0, overflow: "auto" }}>
+            <div
+                style={{
+                    marginTop: 12,
+                    flex: "1 1 auto",
+                    minHeight: 0,
+                    overflow: "auto",
+                    transition: "all 260ms ease",
+                }}
+            >
                 {author ? (
                     <div
                         style={{
@@ -154,30 +176,23 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
                     {description || " "}
                 </p>
 
-                {features.length > 0 && (
+                {featureItems.length > 0 && (
                     <div
                         style={{
                             marginTop: 12,
                             display: "flex",
                             gap: 8,
                             flexWrap: "wrap",
+                            transition: "all 260ms ease",
                         }}
                     >
-                        {features.map((f, i) => (
-                            <span
-                                key={i}
-                                style={{
-                                    backgroundColor: "#5b3eb7",
-                                    color: "#fff",
-                                    padding: "6px 10px",
-                                    borderRadius: 999,
-                                    fontSize: 13,
-                                    boxShadow:
-                                        "inset 0 -2px 0 rgba(0,0,0,0.15)",
-                                }}
-                            >
-                                {f}
-                            </span>
+                        {featureItems.map((item, i) => (
+                            <FeaturePill
+                                key={item.index}
+                                stream={item.stream}
+                                enterDelayMs={Math.min(i * 25, 250)}
+                                abortSignal={props.abortController?.signal}
+                            />
                         ))}
                     </div>
                 )}
