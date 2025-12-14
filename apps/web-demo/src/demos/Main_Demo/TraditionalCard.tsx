@@ -61,7 +61,7 @@ export function TraditionalCard(props: { jsonStreamPreview: AsyncIterable<string
             <h2 style={{ margin: 0, marginBottom: 12, textAlign: 'center', flex: '0 0 auto' }}>{title || 'Untitled'}</h2>
 
             {imageUrl ? (
-                <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', flex: '0 0 200px' }}>
+                <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', flex: '0 0 200px', paddingBottom: 40 }}>
                     <img src={imageUrl} alt={title ?? 'image'} style={{ width: '100%', height: 200, objectFit: 'cover', display: 'block' }} />
                     <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: 8, backgroundColor: 'rgba(0,0,0,0.6)', color: '#ffffff', padding: '6px 10px', borderRadius: 8, fontSize: 12 }}>
                         Created by: {imageGeneratedWith || author || 'LLM'}

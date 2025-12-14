@@ -114,6 +114,7 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
                         borderRadius: 12,
                         overflow: "hidden",
                         flex: "0 0 200px",
+                        paddingBottom: 40
                     }}
                 >
                     <img

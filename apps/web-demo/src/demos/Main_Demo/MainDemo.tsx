@@ -21,7 +21,7 @@ const exampleJson = JSON.stringify({
         `Compatible with any Typescript projects`,
     ],
     image: {
-        url: 'https://raw.githubusercontent.com/ComsIndeed/json_stream_parser_demo/main/assets/cover.jpg',
+        url: 'https://raw.githubusercontent.com/ComsIndeed/llm-json-stream-typescript/main/assets/cover_image.png',
         generated_with: 'Gemini'
     }
 })
@@ -32,12 +32,14 @@ export default function MainDemo() {
     const [streamingParserIterable, setStreamingParserIterable] = useState<AsyncIterable<string> | null>(null)
     const [resetStreamFn, setResetStream] = useState<() => void>(() => { })
     const [abortController, setAbortController] = useState<AbortController | null>(null)
+    const [msInterval, setMsInterval] = useState<number>(100)
+    const [chunkSize, setChunkSize] = useState<number>(5)
 
     const startStream = () => {
         const controller = new AbortController();
         setAbortController(controller);
 
-        const iterable = streamTextInChunks(exampleJson, 5, 100);
+        const iterable = streamTextInChunks(exampleJson, chunkSize, msInterval);
         const [preview, traditionalParser, streamingParser] = multicastAsyncIterable(iterable, 3);
 
         setResetStream(() => () => {
@@ -99,6 +101,37 @@ export default function MainDemo() {
                 <div style={cardStyle}>
                     <h2 style={{ marginTop: 0 }}>LLM JSON Stream</h2>
                     <JsonStreamCodeView jsonStreamFullValue={exampleJson} jsonStreamValue={previewValue} textStyle={{ fontSize: 14 }} />
+
+                    <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
+                                MS Interval: {msInterval}ms
+                            </label>
+                            <input
+                                type="range"
+                                min="10"
+                                max="500"
+                                value={msInterval}
+                                onChange={(e) => setMsInterval(Number(e.target.value))}
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '500' }}>
+                                Chunk Size: {chunkSize} chars
+                            </label>
+                            <input
+                                type="range"
+                                min="1"
+                                max="50"
+                                value={chunkSize}
+                                onChange={(e) => setChunkSize(Number(e.target.value))}
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+                    </div>
+
                     <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
                         <button onClick={startStream}>Start Stream (Space)</button>
                         <button onClick={resetStreamFn}>Reset (Shift+Space)</button>
