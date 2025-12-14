@@ -22,7 +22,7 @@
     "dev": "concurrently \"pnpm -F llm-json-stream build --watch\" \"pnpm -F web-demo dev\"",
     "build:parser": "pnpm -F llm-json-stream build",
     "watch:parser": "pnpm -F llm-json-stream build --watch",
-    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules"
+    "clean": "node ./scripts/clean.js"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
