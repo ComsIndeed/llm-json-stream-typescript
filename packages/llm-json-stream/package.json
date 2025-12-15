@@ -1,6 +1,6 @@
 {
   "name": "llm-json-stream",
-  "version": "0.0.1-beta.1",
+  "version": "0.0.1",
   "description": "Cross-platform streaming JSON parser for TypeScript optimized for LLM responses. Works on Node.js, Deno, Bun, browsers, and edge runtimes.",
   "type": "module",
   "main": "./dist/index.js",

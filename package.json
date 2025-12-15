@@ -21,6 +21,7 @@
     "dev:demo": "pnpm -F web-demo dev",
     "dev": "concurrently \"pnpm -F llm-json-stream build --watch\" \"pnpm -F web-demo dev\"",
     "build:parser": "pnpm -F llm-json-stream build",
+    "build:demo": "pnpm -F llm-json-stream build && pnpm -F web-demo build",
     "watch:parser": "pnpm -F llm-json-stream build --watch",
     "clean": "node ./scripts/clean.js"
   },
