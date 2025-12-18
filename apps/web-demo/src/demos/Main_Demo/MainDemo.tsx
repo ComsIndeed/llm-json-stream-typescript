@@ -142,10 +142,12 @@ export default function MainDemo() {
                 </div>
 
                 <div style={cardStyle}>
+                    <CodeSnippet code={"const parser = new JsonStreamParser(response);"} style={{ fontSize: 14 }} />
                     <CodeSnippet code={"const titleIterable = parser.getStringProperty('title');"} style={{ fontSize: 14 }} />
                     <CodeSnippet code={"const authorIterable = parser.getStringProperty('author');"} style={{ fontSize: 14 }} />
                     <CodeSnippet code={"const descriptionIterable = parser.getStringProperty('description');"} style={{ fontSize: 14 }} />
                     <CodeSnippet code={"const imageUrlIterable = parser.getStringProperty('image.url');"} style={{ fontSize: 14 }} />
+                    <CodeSnippet code={"parser.getArrayProperty('features').onElement((elementIterable) => {...});"} style={{ fontSize: 14 }} />
                 </div>
 
             </div>
