@@ -1,6 +1,6 @@
 {
   "name": "llm-json-stream-typescript",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Monorepo for the TypeScript port of llm-json-stream",
   "private": true,
   "workspaces": [
