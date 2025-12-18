@@ -10,6 +10,8 @@
 
 Parse JSON reactively as LLM responses stream in. Subscribe to properties and receive values chunk-by-chunk as they're generated—no waiting for the complete response.
 
+![Demo GIF](https://raw.githubusercontent.com/ComsIndeed/llm-json-stream-typescript/main/assets/main-demo.gif)
+
 [**Live Demo**](https://comsindeed.github.io/llm-json-stream-typescript/) · [**API Docs**](https://github.com/ComsIndeed/llm-json-stream-typescript) · [**GitHub**](https://github.com/ComsIndeed/llm-json-stream-typescript)
 
 </div>
