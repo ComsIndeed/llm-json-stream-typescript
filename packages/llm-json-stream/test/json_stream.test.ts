@@ -702,7 +702,7 @@ describe("Streaming Behavior", () => {
         );
     });
 
-    test("emits array snapshots as elements complete", async () => {
+    test("emits AsyncJson for each array element", async () => {
         const json = '{"items":["a","b","c"]}';
         const stream = streamTextInChunks({
             text: json,
@@ -711,23 +711,23 @@ describe("Streaming Behavior", () => {
         });
 
         const jsonStream = JsonStream.parse(stream);
-        const snapshots: string[][] = [];
+        const items: string[] = [];
 
         await withTimeout(
             (async () => {
+                // Now iteration yields AsyncJson<E> for each element
                 for await (
-                    const snapshot of jsonStream.get<string[]>("items")
+                    const itemAsync of jsonStream.get<string[]>("items")
                 ) {
-                    snapshots.push([...snapshot]);
+                    const item = await itemAsync;
+                    items.push(item);
                 }
             })(),
             2000,
         );
 
-        // Should have progressive snapshots
-        expect(snapshots.length).toBeGreaterThan(0);
-        // Final snapshot should have all items
-        expect(snapshots[snapshots.length - 1]).toEqual(["a", "b", "c"]);
+        // Should have collected all items
+        expect(items).toEqual(["a", "b", "c"]);
     });
 
     test("emits object snapshots as properties complete", async () => {
@@ -757,6 +757,91 @@ describe("Streaming Behavior", () => {
             name: "Alice",
             age: 30,
         });
+    });
+});
+
+// ============================================================================
+// Array Iteration with Chained Access Tests
+// ============================================================================
+
+describe("Array Iteration with Chained Access", () => {
+    test("iterating yields AsyncJson<E> for each element with .get() access", async () => {
+        const json =
+            '{"users":[{"name":"Alice","age":30},{"name":"Bob","age":25}]}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 10,
+            interval: 10,
+        });
+
+        const jsonStream = JsonStream.parse(stream);
+        const usersAsync = jsonStream.get<User[]>("users");
+
+        const users: { name: string; age: number }[] = [];
+
+        // Iterate over array - each iteration yields AsyncJson<User>
+        for await (const userAsync of usersAsync) {
+            // Can access nested properties using .get()
+            const name = await userAsync.get<string>("name");
+            const age = await userAsync.get<number>("age");
+            users.push({ name, age });
+        }
+
+        expect(users).toEqual([
+            { name: "Alice", age: 30 },
+            { name: "Bob", age: 25 },
+        ]);
+    });
+
+    test("iterating with streaming nested strings", async () => {
+        const json =
+            '{"items":[{"desc":"Hello World"},{"desc":"Goodbye World"}]}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 5,
+            interval: 10,
+        });
+
+        const jsonStream = JsonStream.parse<{ items: { desc: string }[] }>(
+            stream,
+        );
+        const allChunks: string[][] = [];
+
+        for await (
+            const itemAsync of jsonStream.get<{ desc: string }[]>("items")
+        ) {
+            const chunks: string[] = [];
+            // Stream the description string chunks
+            for await (const chunk of itemAsync.get<string>("desc")) {
+                chunks.push(chunk);
+            }
+            allChunks.push(chunks);
+        }
+
+        // Each item should have streamed its description
+        expect(allChunks.length).toBe(2);
+        expect(allChunks[0].join("")).toBe("Hello World");
+        expect(allChunks[1].join("")).toBe("Goodbye World");
+    });
+
+    test("can await element value directly", async () => {
+        const json = '{"items":[1,2,3]}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 5,
+            interval: 10,
+        });
+
+        const jsonStream = JsonStream.parse<{ items: number[] }>(stream);
+        const values: number[] = [];
+
+        // Each iteration yields AsyncJson<number> which can be awaited
+        for await (const itemAsync of jsonStream.get<number[]>("items")) {
+            const value = await itemAsync;
+            values.push(value);
+        }
+
+        expect(values).toEqual([1, 2, 3]);
     });
 });
 

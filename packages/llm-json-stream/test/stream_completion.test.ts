@@ -118,13 +118,15 @@ describe("Stream Completion Tests", () => {
         const parser = JsonStream.parse(stream);
         const itemsStream = parser.get<number[]>("items");
 
-        const snapshots: number[][] = [];
-        for await (const snapshot of itemsStream) {
-            snapshots.push([...snapshot]);
+        const items: number[] = [];
+        // Now iteration yields AsyncJson<E> for each element
+        for await (const itemAsync of itemsStream) {
+            const item = await itemAsync;
+            items.push(item);
         }
 
-        // Final value should contain all elements
-        expect(snapshots[snapshots.length - 1]).toEqual([1, 2, 3]);
+        // Should have collected all elements
+        expect(items).toEqual([1, 2, 3]);
     });
 
     test("nested property completion order", async () => {

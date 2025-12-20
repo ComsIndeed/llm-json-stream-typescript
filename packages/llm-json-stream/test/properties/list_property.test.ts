@@ -124,7 +124,7 @@ describe("List Property Tests", () => {
         expect(val2).toBe("third");
     });
 
-    test("array iteration with for await", async () => {
+    test("array iteration with for await yields AsyncJson per element", async () => {
         const json = '{"items":[1,2,3,4,5]}';
         const stream = streamTextInChunks({
             text: json,
@@ -135,15 +135,15 @@ describe("List Property Tests", () => {
         const parser = JsonStream.parse(stream);
         const itemsStream = parser.get<number[]>("items");
 
-        const snapshots: number[][] = [];
-        for await (const snapshot of itemsStream) {
-            snapshots.push([...snapshot]);
+        const items: number[] = [];
+        // Now iteration yields AsyncJson<E> for each element
+        for await (const itemAsync of itemsStream) {
+            const item = await itemAsync;
+            items.push(item);
         }
 
-        // Should have received incremental snapshots
-        expect(snapshots.length).toBeGreaterThan(0);
-        // Final snapshot should have all items
-        expect(snapshots[snapshots.length - 1]).toEqual([1, 2, 3, 4, 5]);
+        // Should have collected all items
+        expect(items).toEqual([1, 2, 3, 4, 5]);
     });
 
     test("array elements accessible by index", async () => {
@@ -221,7 +221,7 @@ describe("List Property Tests", () => {
         expect(finalValue.length).toBe(100);
     });
 
-    test("async iterator emits list snapshots", async () => {
+    test("async iterator yields AsyncJson per element", async () => {
         const json = '{"items":[1,2,3]}';
         const stream = streamTextInChunks({
             text: json,
@@ -230,17 +230,16 @@ describe("List Property Tests", () => {
         });
 
         const parser = JsonStream.parse(stream);
-        const itemsStream = parser.get<any[]>("items");
+        const itemsStream = parser.get<number[]>("items");
 
-        // Collect all snapshots using async iterator
-        const snapshots: any[][] = [];
-        for await (const snapshot of itemsStream) {
-            snapshots.push([...snapshot]); // Copy to preserve state
+        // Now iteration yields AsyncJson<E> for each element
+        const items: number[] = [];
+        for await (const itemAsync of itemsStream) {
+            const item = await itemAsync;
+            items.push(item);
         }
 
-        // Should have received incremental snapshots
-        // Final snapshot should have all elements
-        expect(snapshots.length).toBeGreaterThan(0);
-        expect(snapshots[snapshots.length - 1]).toEqual([1, 2, 3]);
+        // Should have collected all elements
+        expect(items).toEqual([1, 2, 3]);
     });
 });

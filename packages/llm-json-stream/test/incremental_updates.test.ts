@@ -62,7 +62,7 @@ describe("Incremental Updates", () => {
         expect(finalSnapshot).toEqual({ name: "Alice", age: 30, active: true });
     });
 
-    test("List emits incremental snapshots", async () => {
+    test("List emits AsyncJson<E> for each element", async () => {
         const stream = streamTextInChunks({
             text: '{"items":[1,2,3,4,5]}',
             chunkSize: 5,
@@ -70,19 +70,18 @@ describe("Incremental Updates", () => {
         });
         const parser = JsonStream.parse(stream);
 
-        const listStream = parser.get<any[]>("items");
-        const emittedLists: any[][] = [];
+        const listStream = parser.get<number[]>("items");
+        const emittedItems: number[] = [];
 
-        for await (const snapshot of listStream) {
-            emittedLists.push([...snapshot]);
+        // Now iterating yields AsyncJson<E> for each element
+        for await (const itemAsync of listStream) {
+            const item = await itemAsync;
+            emittedItems.push(item);
         }
 
-        // Should emit at least one snapshot
-        expect(emittedLists.length).toBeGreaterThanOrEqual(1);
-
-        // Final snapshot should have all elements
-        const finalSnapshot = emittedLists[emittedLists.length - 1];
-        expect(finalSnapshot).toEqual([1, 2, 3, 4, 5]);
+        // Should have collected all 5 elements
+        expect(emittedItems.length).toBe(5);
+        expect(emittedItems).toEqual([1, 2, 3, 4, 5]);
     });
 
     test("Nested objects resolve correctly", async () => {

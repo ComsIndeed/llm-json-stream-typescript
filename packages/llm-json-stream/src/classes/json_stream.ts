@@ -28,7 +28,7 @@
  */
 
 import { JsonStreamParser } from "./json_stream_parser.js";
-import { PropertyStream } from "./property_stream.js";
+import { ArrayPropertyStream, PropertyStream } from "./property_stream.js";
 
 // ============================================================================
 // Type Definitions
@@ -52,8 +52,12 @@ export interface JsonStreamOptions {
  * - Awaiting the final value: `const name = await asyncJson;`
  * - Iterating over streaming chunks: `for await (const chunk of asyncJson) { ... }`
  * - Chained property access: `asyncJson.get<U>('nested.path')`
+ *
+ * For arrays (AsyncJson<E[]>), iteration yields AsyncJson<E> for each element,
+ * allowing chained access on each array item.
  */
-export interface AsyncJson<T> extends Promise<T>, AsyncIterable<T> {
+export interface AsyncJson<T>
+    extends Promise<T>, AsyncIterable<AsyncJsonIteratorYield<T>> {
     /**
      * Get a nested property from this value.
      * @param path - The path to the nested property (supports dot notation and bracket notation)
@@ -63,8 +67,16 @@ export interface AsyncJson<T> extends Promise<T>, AsyncIterable<T> {
     /**
      * Returns an unbuffered async iterator that only receives new values from the subscription point.
      */
-    unbuffered(): AsyncIterableIterator<T>;
+    unbuffered(): AsyncIterableIterator<AsyncJsonIteratorYield<T>>;
 }
+
+/**
+ * Type helper to determine what type the async iterator yields.
+ * - For arrays: yields AsyncJson<E> for each element
+ * - For non-arrays: yields T (the value itself, e.g., string chunks)
+ */
+export type AsyncJsonIteratorYield<T> = T extends (infer E)[] ? AsyncJson<E>
+    : T;
 
 /**
  * Type helper for creating the proxy path type.
@@ -131,8 +143,85 @@ export type AsyncJsonArrayPath<E> =
 // ============================================================================
 
 /**
+ * Creates an async iterator that yields AsyncJson<E> for each array element.
+ * This allows chaining .get() calls on each element during iteration.
+ */
+function createArrayElementIterator<E>(
+    arrayStream: ArrayPropertyStream<E>,
+    jsonStream: JsonStream<any>,
+    basePath: string,
+): AsyncIterableIterator<AsyncJson<E>> {
+    // Queue of element indices that have been notified
+    const elementQueue: number[] = [];
+    let resolveNext: ((value: IteratorResult<AsyncJson<E>>) => void) | null =
+        null;
+    let isDone = false;
+    let nextElementIndex = 0; // Track which elements we've yielded
+
+    // Register callback to receive element notifications
+    arrayStream.onElement((_propertyStream, index) => {
+        elementQueue.push(index);
+        // If someone is waiting, resolve immediately
+        if (resolveNext) {
+            const idx = elementQueue.shift()!;
+            const elementPath = `${basePath}[${idx}]`;
+            const asyncElement = jsonStream.get<E>(elementPath);
+            resolveNext({ value: asyncElement, done: false });
+            resolveNext = null;
+            nextElementIndex = idx + 1;
+        }
+    });
+
+    // When the array completes, mark as done
+    arrayStream.promise.then(() => {
+        isDone = true;
+        if (resolveNext) {
+            resolveNext({ value: undefined as any, done: true });
+            resolveNext = null;
+        }
+    }).catch(() => {
+        isDone = true;
+        if (resolveNext) {
+            resolveNext({ value: undefined as any, done: true });
+            resolveNext = null;
+        }
+    });
+
+    const iterator: AsyncIterableIterator<AsyncJson<E>> = {
+        [Symbol.asyncIterator]() {
+            return this;
+        },
+        async next(): Promise<IteratorResult<AsyncJson<E>>> {
+            // If there are queued elements, yield the next one
+            if (elementQueue.length > 0) {
+                const idx = elementQueue.shift()!;
+                const elementPath = `${basePath}[${idx}]`;
+                const asyncElement = jsonStream.get<E>(elementPath);
+                nextElementIndex = idx + 1;
+                return { value: asyncElement, done: false };
+            }
+
+            // If array is done, we're done
+            if (isDone) {
+                return { value: undefined as any, done: true };
+            }
+
+            // Wait for the next element
+            return new Promise<IteratorResult<AsyncJson<E>>>((resolve) => {
+                resolveNext = resolve;
+            });
+        },
+    };
+
+    return iterator;
+}
+
+/**
  * Creates an AsyncJson wrapper around a PropertyStream.
  * This makes the PropertyStream both awaitable and iterable.
+ *
+ * For arrays, iteration yields AsyncJson<E> for each element, allowing chained access.
+ * For other types, iteration yields the values directly (e.g., string chunks).
  */
 function createAsyncJsonFromStream<T>(
     propertyStream: PropertyStream<T>,
@@ -141,6 +230,9 @@ function createAsyncJsonFromStream<T>(
 ): AsyncJson<T> {
     // Create the base promise from the property stream
     const promise = propertyStream.promise;
+
+    // Check if this is an array stream
+    const isArrayStream = propertyStream instanceof ArrayPropertyStream;
 
     // Create the AsyncJson object that is both a Promise and AsyncIterable
     const asyncJson: AsyncJson<T> = {
@@ -171,9 +263,26 @@ function createAsyncJsonFromStream<T>(
         // Symbol for Promise identification
         [Symbol.toStringTag]: "AsyncJson",
 
-        // AsyncIterable interface - delegates to the property stream
-        [Symbol.asyncIterator](): AsyncIterableIterator<T> {
-            return propertyStream[Symbol.asyncIterator]();
+        // AsyncIterable interface
+        // For arrays: yields AsyncJson<E> for each element
+        // For other types: yields the values directly
+        [Symbol.asyncIterator](): AsyncIterableIterator<
+            AsyncJsonIteratorYield<T>
+        > {
+            if (isArrayStream) {
+                // For arrays, yield AsyncJson<E> for each element
+                return createArrayElementIterator(
+                    propertyStream as unknown as ArrayPropertyStream<any>,
+                    jsonStream,
+                    basePath,
+                ) as AsyncIterableIterator<AsyncJsonIteratorYield<T>>;
+            } else {
+                // For non-arrays, yield values directly
+                return propertyStream
+                    [Symbol.asyncIterator]() as AsyncIterableIterator<
+                        AsyncJsonIteratorYield<T>
+                    >;
+            }
         },
 
         // Chained property access
@@ -183,8 +292,20 @@ function createAsyncJsonFromStream<T>(
         },
 
         // Unbuffered iterator access
-        unbuffered(): AsyncIterableIterator<T> {
-            return propertyStream.unbuffered();
+        unbuffered(): AsyncIterableIterator<AsyncJsonIteratorYield<T>> {
+            if (isArrayStream) {
+                // For arrays, unbuffered also yields AsyncJson<E> per element
+                // Note: This creates a new iterator starting from current position
+                return createArrayElementIterator(
+                    propertyStream as unknown as ArrayPropertyStream<any>,
+                    jsonStream,
+                    basePath,
+                ) as AsyncIterableIterator<AsyncJsonIteratorYield<T>>;
+            } else {
+                return propertyStream.unbuffered() as AsyncIterableIterator<
+                    AsyncJsonIteratorYield<T>
+                >;
+            }
         },
     };
 
@@ -506,16 +627,20 @@ export class JsonStream<T = any> {
 
             [Symbol.toStringTag]: "AsyncJson",
 
-            [Symbol.asyncIterator](): AsyncIterableIterator<U> {
+            [Symbol.asyncIterator](): AsyncIterableIterator<
+                AsyncJsonIteratorYield<U>
+            > {
                 // Create an iterator that waits for the stream to be ready
                 let propertyStream: PropertyStream<U> | null = null;
-                let streamIterator: AsyncIterableIterator<U> | null = null;
+                let streamIterator: AsyncIterableIterator<any> | null = null;
 
-                const iter: AsyncIterableIterator<U> = {
+                const iter: AsyncIterableIterator<AsyncJsonIteratorYield<U>> = {
                     [Symbol.asyncIterator]() {
                         return this;
                     },
-                    async next(): Promise<IteratorResult<U>> {
+                    async next(): Promise<
+                        IteratorResult<AsyncJsonIteratorYield<U>>
+                    > {
                         // Wait for the stream to be available
                         if (!propertyStream) {
                             // Unwrap from container
@@ -525,8 +650,17 @@ export class JsonStream<T = any> {
 
                         // Get or create the iterator
                         if (!streamIterator) {
-                            streamIterator = propertyStream!
-                                [Symbol.asyncIterator]();
+                            // Check if this is an array stream
+                            if (propertyStream instanceof ArrayPropertyStream) {
+                                streamIterator = createArrayElementIterator(
+                                    propertyStream as ArrayPropertyStream<any>,
+                                    self,
+                                    path,
+                                );
+                            } else {
+                                streamIterator = propertyStream!
+                                    [Symbol.asyncIterator]();
+                            }
                         }
 
                         return streamIterator.next();
@@ -541,16 +675,18 @@ export class JsonStream<T = any> {
                 return self.get<V>(fullPath);
             },
 
-            unbuffered(): AsyncIterableIterator<U> {
+            unbuffered(): AsyncIterableIterator<AsyncJsonIteratorYield<U>> {
                 // For pending async json, create an iterator that waits for the stream
                 let propertyStream: PropertyStream<U> | null = null;
-                let unbufferedIter: AsyncIterableIterator<U> | null = null;
+                let unbufferedIter: AsyncIterableIterator<any> | null = null;
 
-                const iter: AsyncIterableIterator<U> = {
+                const iter: AsyncIterableIterator<AsyncJsonIteratorYield<U>> = {
                     [Symbol.asyncIterator]() {
                         return this;
                     },
-                    async next(): Promise<IteratorResult<U>> {
+                    async next(): Promise<
+                        IteratorResult<AsyncJsonIteratorYield<U>>
+                    > {
                         // Wait for the stream to be available
                         if (!propertyStream) {
                             // Unwrap from container
@@ -560,7 +696,16 @@ export class JsonStream<T = any> {
 
                         // Get or create the unbuffered iterator
                         if (!unbufferedIter) {
-                            unbufferedIter = propertyStream!.unbuffered();
+                            // Check if this is an array stream
+                            if (propertyStream instanceof ArrayPropertyStream) {
+                                unbufferedIter = createArrayElementIterator(
+                                    propertyStream as ArrayPropertyStream<any>,
+                                    self,
+                                    path,
+                                );
+                            } else {
+                                unbufferedIter = propertyStream!.unbuffered();
+                            }
                         }
 
                         return unbufferedIter.next();

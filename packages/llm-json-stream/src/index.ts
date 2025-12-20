@@ -49,6 +49,7 @@ export { JsonStream } from "./classes/json_stream.js";
 export type {
     AsyncJson,
     AsyncJsonArrayPath,
+    AsyncJsonIteratorYield,
     AsyncJsonObjectPath,
     AsyncJsonPath,
     AsyncJsonPrimitivePath,
