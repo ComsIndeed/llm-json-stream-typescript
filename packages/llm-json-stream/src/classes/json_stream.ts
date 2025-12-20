@@ -468,7 +468,7 @@ export class JsonStream<T = any> {
             requests = [];
             this.pendingRequests.set(path, requests);
         }
-        // Wrap the stream when resolving to avoid thenable unwrapping
+        // Register the pending request - wrap stream to avoid thenable unwrapping
         requests.push({
             resolve: (stream: PropertyStream<U>) => resolveStream!({ stream }),
             reject: rejectStream!,
