@@ -7,8 +7,7 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../../src/index.js";
 
 describe("Map Property Tests", () => {
     test("simple object", async () => {
@@ -19,10 +18,10 @@ describe("Map Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const rootStream = parser.getObjectProperty("");
+        const parser = JsonStream.parse(stream);
+        const rootStream = parser.get<Record<string, any>>("");
 
-        const finalValue = await rootStream.promise;
+        const finalValue = await rootStream;
         expect(finalValue).toEqual({ name: "Alice", age: 30 });
     });
 
@@ -34,10 +33,10 @@ describe("Map Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const dataStream = parser.getObjectProperty("data");
+        const parser = JsonStream.parse(stream);
+        const dataStream = parser.get<Record<string, any>>("data");
 
-        const finalValue = await dataStream.promise;
+        const finalValue = await dataStream;
         expect(finalValue).toEqual({});
     });
 
@@ -49,10 +48,10 @@ describe("Map Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const profileStream = parser.getObjectProperty("user.profile");
+        const parser = JsonStream.parse(stream);
+        const profileStream = parser.get<Record<string, any>>("user.profile");
 
-        const finalValue = await profileStream.promise;
+        const finalValue = await profileStream;
         expect(finalValue).toEqual({ name: "Bob" });
     });
 
@@ -64,10 +63,10 @@ describe("Map Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const rootStream = parser.getObjectProperty("");
+        const parser = JsonStream.parse(stream);
+        const rootStream = parser.get<Record<string, any>>("");
 
-        const finalValue = await rootStream.promise;
+        const finalValue = await rootStream;
         expect(finalValue).toEqual({
             name: "Alice",
             age: 30,
@@ -84,10 +83,10 @@ describe("Map Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const deepStream = parser.getObjectProperty("a.b.c.d");
+        const parser = JsonStream.parse(stream);
+        const deepStream = parser.get<Record<string, any>>("a.b.c.d");
 
-        const finalValue = await deepStream.promise;
+        const finalValue = await deepStream;
         expect(finalValue).toEqual({ e: "deep" });
     });
 
@@ -99,13 +98,13 @@ describe("Map Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const nameStream = parser.getStringProperty("user.name");
-        const emailStream = parser.getStringProperty("user.email");
+        const parser = JsonStream.parse(stream);
+        const nameStream = parser.get<string>("user.name");
+        const emailStream = parser.get<string>("user.email");
 
         const [name, email] = await Promise.all([
-            nameStream.promise,
-            emailStream.promise,
+            nameStream,
+            emailStream,
         ]);
 
         expect(name).toBe("Alice");
@@ -121,17 +120,17 @@ describe("Map Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const employeeName = parser.getStringProperty(
+        const parser = JsonStream.parse(stream);
+        const employeeName = parser.get<string>(
             "company.employees[0].name",
         );
-        const employeeRole = parser.getStringProperty(
+        const employeeRole = parser.get<string>(
             "company.employees[0].role",
         );
 
         const [name, role] = await Promise.all([
-            employeeName.promise,
-            employeeRole.promise,
+            employeeName,
+            employeeRole,
         ]);
 
         expect(name).toBe("Alice");
@@ -146,8 +145,8 @@ describe("Map Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const rootStream = parser.getObjectProperty("");
+        const parser = JsonStream.parse(stream);
+        const rootStream = parser.get<Record<string, any>>("");
 
         // Collect all snapshots using async iterator
         const snapshots: Record<string, any>[] = [];
@@ -164,4 +163,3 @@ describe("Map Property Tests", () => {
         });
     });
 });
-

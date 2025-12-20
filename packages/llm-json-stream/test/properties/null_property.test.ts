@@ -7,8 +7,8 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../../src/index.js";
+
 
 describe("Null Property Tests", () => {
     test("null value", async () => {
@@ -19,15 +19,15 @@ describe("Null Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const valueStream = parser.getNullProperty("value");
+        const parser = JsonStream.parse(stream);
+        const valueStream = parser.get<null>("value");
 
         const streamEvents: null[] = [];
         for await (const value of valueStream) {
             streamEvents.push(value);
         }
 
-        const finalValue = await valueStream.promise;
+        const finalValue = await valueStream;
 
         // Null emits once when complete
         expect(streamEvents).toEqual([null]);
@@ -42,10 +42,10 @@ describe("Null Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const avatarStream = parser.getNullProperty("user.avatar");
+        const parser = JsonStream.parse(stream);
+        const avatarStream = parser.get<null>("user.avatar");
 
-        const finalValue = await avatarStream.promise;
+        const finalValue = await avatarStream;
         expect(finalValue).toBeNull();
     });
 
@@ -57,15 +57,15 @@ describe("Null Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const item0 = parser.getNullProperty("items[0]");
-        const item1 = parser.getNullProperty("items[1]");
-        const item2 = parser.getNullProperty("items[2]");
+        const parser = JsonStream.parse(stream);
+        const item0 = parser.get<null>("items[0]");
+        const item1 = parser.get<null>("items[1]");
+        const item2 = parser.get<null>("items[2]");
 
         const [val0, val1, val2] = await Promise.all([
-            item0.promise,
-            item1.promise,
-            item2.promise,
+            item0,
+            item1,
+            item2,
         ]);
 
         expect(val0).toBeNull();
@@ -81,15 +81,15 @@ describe("Null Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const a = parser.getNullProperty("a");
-        const b = parser.getNullProperty("b");
-        const c = parser.getNullProperty("c");
+        const parser = JsonStream.parse(stream);
+        const a = parser.get<null>("a");
+        const b = parser.get<null>("b");
+        const c = parser.get<null>("c");
 
         const [aVal, bVal, cVal] = await Promise.all([
-            a.promise,
-            b.promise,
-            c.promise,
+            a,
+            b,
+            c,
         ]);
 
         expect(aVal).toBeNull();
@@ -105,8 +105,8 @@ describe("Null Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const valueStream = parser.getNullProperty("value");
+        const parser = JsonStream.parse(stream);
+        const valueStream = parser.get<null>("value");
 
         // Use async iterator pattern
         const values: null[] = [];

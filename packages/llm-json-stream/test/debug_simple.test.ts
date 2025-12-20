@@ -1,6 +1,6 @@
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
+
 
 describe("Debug Simple List", () => {
     test("simple number array - big chunks", async () => {
@@ -10,12 +10,12 @@ describe("Debug Simple List", () => {
             chunkSize: 100,
             interval: 0,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         // console.log("=== Big chunks test ===");
-        const numbersStream = parser.getArrayProperty("numbers");
+        const numbersStream = parser.get<any[]>("numbers");
 
-        const result = await numbersStream.promise;
+        const result = await numbersStream;
         // console.log("Result:", result);
 
         expect(result).toEqual([1, 2, 3]);
@@ -28,11 +28,11 @@ describe("Debug Simple List", () => {
             chunkSize: 6,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const numbersStream = parser.getArrayProperty("numbers");
+        const numbersStream = parser.get<any[]>("numbers");
 
-        const result = await numbersStream.promise;
+        const result = await numbersStream;
 
         expect(result).toEqual([1, 2, 3]);
     });

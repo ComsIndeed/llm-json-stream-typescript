@@ -1,6 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 describe("Yap Filter - Stop parsing after root object completes", () => {
     test("Parser stops after root map object closes", async () => {
@@ -12,12 +11,12 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const nameStream = parser.getStringProperty("name");
+        const nameStream = parser.get<string>("name");
 
         // Parser should complete gracefully without crashing
-        const result = await nameStream.promise;
+        const result = await nameStream;
         expect(result).toBe("Valid");
 
         parser.dispose();
@@ -31,12 +30,12 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const listStream = parser.getArrayProperty("");
+        const listStream = parser.get<any[]>("");
 
         // Parser should complete gracefully
-        const result = await listStream.promise;
+        const result = await listStream;
         expect(result).toEqual([1, 2, 3]);
 
         parser.dispose();
@@ -50,11 +49,11 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const titleStream = parser.getStringProperty("title");
+        const titleStream = parser.get<string>("title");
 
-        const result = await titleStream.promise;
+        const result = await titleStream;
         expect(result).toBe("Hello");
 
         parser.dispose();
@@ -69,11 +68,11 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
             chunkSize: 15,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const dataStream = parser.getObjectProperty("");
+        const dataStream = parser.get<Record<string, any>>("");
 
-        const result = await dataStream.promise;
+        const result = await dataStream;
         expect(result["key"]).toBe("value");
 
         parser.dispose();
@@ -88,16 +87,16 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const userStream = parser.getObjectProperty("user");
-        const nameStream = parser.getStringProperty("user.name");
-        const ageStream = parser.getNumberProperty("user.age");
+        const userStream = parser.get<Record<string, any>>("user");
+        const nameStream = parser.get<string>("user.name");
+        const ageStream = parser.get<number>("user.age");
 
         const [user, name, age] = await Promise.all([
-            userStream.promise,
-            nameStream.promise,
-            ageStream.promise,
+            userStream,
+            nameStream,
+            ageStream,
         ]);
 
         expect(name).toBe("Alice");
@@ -115,11 +114,11 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const valueStream = parser.getNumberProperty("value");
+        const valueStream = parser.get<number>("value");
 
-        const result = await valueStream.promise;
+        const result = await valueStream;
         expect(result).toBe(42);
 
         parser.dispose();
@@ -133,11 +132,11 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
             chunkSize: 5,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const okStream = parser.getBooleanProperty("ok");
+        const okStream = parser.get<boolean>("ok");
 
-        const result = await okStream.promise;
+        const result = await okStream;
         expect(result).toBe(true);
 
         parser.dispose();
@@ -154,16 +153,16 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
             chunkSize: 12,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const dataStream = parser.getObjectProperty("data");
-        const itemsStream = parser.getArrayProperty("data.items");
-        const countStream = parser.getNumberProperty("data.meta.count");
+        const dataStream = parser.get<Record<string, any>>("data");
+        const itemsStream = parser.get<any[]>("data.items");
+        const countStream = parser.get<number>("data.meta.count");
 
         const [data, items, count] = await Promise.all([
-            dataStream.promise,
-            itemsStream.promise,
-            countStream.promise,
+            dataStream,
+            itemsStream,
+            countStream,
         ]);
 
         expect(items).toEqual([1, 2, 3]);
@@ -181,11 +180,11 @@ describe("Yap Filter - Stop parsing after root object completes", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const listStream = parser.getArrayProperty("");
+        const listStream = parser.get<any[]>("");
 
-        const result = await listStream.promise;
+        const result = await listStream;
         expect(result).toEqual(["apple", "banana", "cherry"]);
 
         parser.dispose();
@@ -201,11 +200,11 @@ describe("Yap Filter - Edge Cases", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const singleStream = parser.getStringProperty("single");
+        const singleStream = parser.get<string>("single");
 
-        const result = await singleStream.promise;
+        const result = await singleStream;
         expect(result).toBe("value");
 
         parser.dispose();
@@ -220,11 +219,11 @@ describe("Yap Filter - Edge Cases", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const successStream = parser.getBooleanProperty("success");
+        const successStream = parser.get<boolean>("success");
 
-        const result = await successStream.promise;
+        const result = await successStream;
         expect(result).toBe(true);
 
         parser.dispose();
@@ -238,14 +237,13 @@ describe("Yap Filter - Edge Cases", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const dataStream = parser.getNullProperty("data");
+        const dataStream = parser.get<null>("data");
 
-        const result = await dataStream.promise;
+        const result = await dataStream;
         expect(result).toBe(null);
 
         parser.dispose();
     });
 });
-

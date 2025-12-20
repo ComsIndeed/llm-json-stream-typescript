@@ -96,6 +96,9 @@ export class JsonStreamParser {
     private closeOnRootComplete: boolean;
     private consumeStreamPromise: Promise<void> | null = null;
 
+    /** Callback called when root delegate is created, with the type ('object' or 'array') */
+    onRootDelegateCreated?: (type: "object" | "array") => void;
+
     constructor(
         stream: AsyncIterable<string>,
         options?: { closeOnRootComplete?: boolean },
@@ -368,12 +371,14 @@ export class JsonStreamParser {
                         "",
                         this.controller,
                     );
+                    this.onRootDelegateCreated?.("object");
                     this.rootDelegate.addCharacter(character);
                 } else if (character === "[") {
                     this.rootDelegate = new ArrayPropertyDelegate(
                         "",
                         this.controller,
                     );
+                    this.onRootDelegateCreated?.("array");
                     this.rootDelegate.addCharacter(character);
                 }
             }

@@ -4,8 +4,8 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
+
 
 describe("Buffer Flush Tests", () => {
     test("string buffer flushes on chunk boundary", async () => {
@@ -17,15 +17,15 @@ describe("Buffer Flush Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const textStream = parser.getStringProperty("text");
+        const parser = JsonStream.parse(stream);
+        const textStream = parser.get<string>("text");
 
         const chunks: string[] = [];
         for await (const chunk of textStream) {
             chunks.push(chunk);
         }
 
-        const result = await textStream.promise;
+        const result = await textStream;
 
         expect(result).toBe("HelloWorld");
         // Should have received multiple chunks
@@ -40,10 +40,10 @@ describe("Buffer Flush Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const valueStream = parser.getStringProperty("value");
+        const parser = JsonStream.parse(stream);
+        const valueStream = parser.get<string>("value");
 
-        const result = await valueStream.promise;
+        const result = await valueStream;
         expect(result).toBe("test");
     });
 
@@ -56,10 +56,10 @@ describe("Buffer Flush Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const textStream = parser.getStringProperty("text");
+        const parser = JsonStream.parse(stream);
+        const textStream = parser.get<string>("text");
 
-        const result = await textStream.promise;
+        const result = await textStream;
         expect(result).toBe("Hello\nWorld");
     });
 
@@ -71,10 +71,10 @@ describe("Buffer Flush Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const numberStream = parser.getNumberProperty("number");
+        const parser = JsonStream.parse(stream);
+        const numberStream = parser.get<number>("number");
 
-        const result = await numberStream.promise;
+        const result = await numberStream;
         expect(result).toBe(12345);
     });
 
@@ -86,15 +86,15 @@ describe("Buffer Flush Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const a = parser.getBooleanProperty("a");
-        const b = parser.getBooleanProperty("b");
-        const c = parser.getNullProperty("c");
+        const parser = JsonStream.parse(stream);
+        const a = parser.get<boolean>("a");
+        const b = parser.get<boolean>("b");
+        const c = parser.get<null>("c");
 
         const [aVal, bVal, cVal] = await Promise.all([
-            a.promise,
-            b.promise,
-            c.promise,
+            a,
+            b,
+            c,
         ]);
 
         expect(aVal).toBe(true);
@@ -110,10 +110,10 @@ describe("Buffer Flush Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const valueStream = parser.getStringProperty("longPropertyName");
+        const parser = JsonStream.parse(stream);
+        const valueStream = parser.get<string>("longPropertyName");
 
-        const result = await valueStream.promise;
+        const result = await valueStream;
         expect(result).toBe("value");
     });
 
@@ -125,15 +125,15 @@ describe("Buffer Flush Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const a = parser.getStringProperty("a");
-        const b = parser.getStringProperty("b");
-        const c = parser.getStringProperty("c");
+        const parser = JsonStream.parse(stream);
+        const a = parser.get<string>("a");
+        const b = parser.get<string>("b");
+        const c = parser.get<string>("c");
 
         const [aVal, bVal, cVal] = await Promise.all([
-            a.promise,
-            b.promise,
-            c.promise,
+            a,
+            b,
+            c,
         ]);
 
         expect(aVal).toBe("test1");

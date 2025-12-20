@@ -3,8 +3,7 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 describe("Disposal Tests", () => {
     test("dispose cleans up resources", async () => {
@@ -15,10 +14,10 @@ describe("Disposal Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const nameStream = parser.getStringProperty("name");
+        const parser = JsonStream.parse(stream);
+        const nameStream = parser.get<string>("name");
 
-        await nameStream.promise;
+        await nameStream;
         await parser.dispose();
 
         // After disposal, parser should be cleaned up
@@ -33,14 +32,20 @@ describe("Disposal Tests", () => {
             interval: 50, // Longer interval
         });
 
-        const parser = new JsonStreamParser(stream);
-        const nameStream = parser.getStringProperty("name");
+        const parser = JsonStream.parse(stream);
+        const nameStream = parser.get<string>("name");
 
         // Dispose before stream completes
         setTimeout(() => parser.dispose(), 20);
 
         // Future should reject or handle disposal gracefully
-        await expect(nameStream.promise).rejects.toThrow();
+        let threw = false;
+        try {
+            await nameStream;
+        } catch (e) {
+            threw = true;
+        }
+        expect(threw).toBe(true);
     });
 
     test("dispose after stream completes", async () => {
@@ -51,10 +56,10 @@ describe("Disposal Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const valueStream = parser.getNumberProperty("value");
+        const parser = JsonStream.parse(stream);
+        const valueStream = parser.get<number>("value");
 
-        await valueStream.promise;
+        await valueStream;
         await parser.dispose();
 
         // Should not throw
@@ -69,7 +74,7 @@ describe("Disposal Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         await parser.dispose();
         await parser.dispose(); // Should not throw
@@ -86,11 +91,11 @@ describe("Disposal Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
         await parser.dispose();
 
         // Accessing properties after disposal should throw
-        expect(() => parser.getStringProperty("value")).toThrow();
+        expect(() => parser.get<string>("value")).toThrow();
     });
 
     test("pending futures are rejected on disposal", async () => {
@@ -101,16 +106,22 @@ describe("Disposal Tests", () => {
             interval: 100, // Long delay
         });
 
-        const parser = new JsonStreamParser(stream);
-        const valueStream = parser.getNumberProperty("value");
+        const parser = JsonStream.parse(stream);
+        const valueStream = parser.get<number>("value");
 
-        const futurePromise = valueStream.promise;
+        const futurePromise = valueStream;
 
         // Dispose while future is pending
         await parser.dispose();
 
         // Future should be rejected
-        await expect(futurePromise).rejects.toThrow();
+        let threw = false;
+        try {
+            await futurePromise;
+        } catch (e) {
+            threw = true;
+        }
+        expect(threw).toBe(true);
     });
 
     test("stream subscriptions are cancelled on disposal", async () => {
@@ -121,8 +132,8 @@ describe("Disposal Tests", () => {
             interval: 50,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const textStream = parser.getStringProperty("text");
+        const parser = JsonStream.parse(stream);
+        const textStream = parser.get<string>("text");
 
         let eventCount = 0;
         let iteratorErrorMsg = "";
@@ -143,7 +154,7 @@ describe("Disposal Tests", () => {
         })();
 
         // Also handle the promise rejection
-        const handlePromise = textStream.promise.catch((e: unknown) => {
+        const handlePromise = textStream.catch((e: unknown) => {
             if (e instanceof Error) {
                 promiseErrorMsg = e.message;
             }
@@ -164,7 +175,7 @@ describe("Disposal Tests", () => {
         expect(disposedProperly).toBe(true);
     });
 
-    test("nested callbacks are properly cleaned up", async () => {
+    test("array iteration and disposal work together", async () => {
         const json = '{"items":[1,2,3]}';
         const stream = streamTextInChunks({
             text: json,
@@ -172,19 +183,13 @@ describe("Disposal Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const itemsStream = parser.getArrayProperty("items");
+        const parser = JsonStream.parse(stream);
+        const items = await parser.get<number[]>("items");
 
-        const callbacks: number[] = [];
-        itemsStream.onElement((element, index) => {
-            callbacks.push(index);
-        });
-
-        await itemsStream.promise;
         await parser.dispose();
 
-        // Callbacks should have been registered before disposal
-        expect(callbacks.length).toBe(3);
+        // Items should be properly retrieved before disposal
+        expect(items).toEqual([1, 2, 3]);
     });
 
     test("memory cleanup after large JSON parsing", async () => {
@@ -196,14 +201,13 @@ describe("Disposal Tests", () => {
             interval: 0,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const dataStream = parser.getArrayProperty("data");
+        const parser = JsonStream.parse(stream);
+        const dataStream = parser.get<any[]>("data");
 
-        await dataStream.promise;
+        await dataStream;
         await parser.dispose();
 
         // Parser should be cleaned up (specific checks depend on implementation)
         expect(true).toBe(true);
     });
 });
-

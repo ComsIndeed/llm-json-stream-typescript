@@ -7,8 +7,8 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../../src/index.js";
+
 
 describe("Number Property Tests", () => {
     test("positive integer", async () => {
@@ -19,15 +19,15 @@ describe("Number Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const ageStream = parser.getNumberProperty("age");
+        const parser = JsonStream.parse(stream);
+        const ageStream = parser.get<number>("age");
 
         const streamEvents: number[] = [];
         for await (const value of ageStream) {
             streamEvents.push(value);
         }
 
-        const finalValue = await ageStream.promise;
+        const finalValue = await ageStream;
 
         // Number emits once when complete
         expect(streamEvents).toEqual([30]);
@@ -42,10 +42,10 @@ describe("Number Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const tempStream = parser.getNumberProperty("temperature");
+        const parser = JsonStream.parse(stream);
+        const tempStream = parser.get<number>("temperature");
 
-        const finalValue = await tempStream.promise;
+        const finalValue = await tempStream;
         expect(finalValue).toBe(-5);
     });
 
@@ -57,10 +57,10 @@ describe("Number Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const priceStream = parser.getNumberProperty("price");
+        const parser = JsonStream.parse(stream);
+        const priceStream = parser.get<number>("price");
 
-        const finalValue = await priceStream.promise;
+        const finalValue = await priceStream;
         expect(finalValue).toBe(19.99);
     });
 
@@ -72,10 +72,10 @@ describe("Number Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const countStream = parser.getNumberProperty("count");
+        const parser = JsonStream.parse(stream);
+        const countStream = parser.get<number>("count");
 
-        const finalValue = await countStream.promise;
+        const finalValue = await countStream;
         expect(finalValue).toBe(0);
     });
 
@@ -87,10 +87,10 @@ describe("Number Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const valueStream = parser.getNumberProperty("value");
+        const parser = JsonStream.parse(stream);
+        const valueStream = parser.get<number>("value");
 
-        const finalValue = await valueStream.promise;
+        const finalValue = await valueStream;
         expect(finalValue).toBe(-0);
     });
 
@@ -102,10 +102,10 @@ describe("Number Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const distanceStream = parser.getNumberProperty("distance");
+        const parser = JsonStream.parse(stream);
+        const distanceStream = parser.get<number>("distance");
 
-        const finalValue = await distanceStream.promise;
+        const finalValue = await distanceStream;
         expect(finalValue).toBe(1.5e10);
     });
 
@@ -117,10 +117,10 @@ describe("Number Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const popStream = parser.getNumberProperty("population");
+        const parser = JsonStream.parse(stream);
+        const popStream = parser.get<number>("population");
 
-        const finalValue = await popStream.promise;
+        const finalValue = await popStream;
         expect(finalValue).toBe(7800000000);
     });
 
@@ -132,10 +132,10 @@ describe("Number Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const ageStream = parser.getNumberProperty("user.age");
+        const parser = JsonStream.parse(stream);
+        const ageStream = parser.get<number>("user.age");
 
-        const finalValue = await ageStream.promise;
+        const finalValue = await ageStream;
         expect(finalValue).toBe(25);
     });
 
@@ -147,15 +147,15 @@ describe("Number Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const score0 = parser.getNumberProperty("scores[0]");
-        const score1 = parser.getNumberProperty("scores[1]");
-        const score2 = parser.getNumberProperty("scores[2]");
+        const parser = JsonStream.parse(stream);
+        const score0 = parser.get<number>("scores[0]");
+        const score1 = parser.get<number>("scores[1]");
+        const score2 = parser.get<number>("scores[2]");
 
         const [val0, val1, val2] = await Promise.all([
-            score0.promise,
-            score1.promise,
-            score2.promise,
+            score0,
+            score1,
+            score2,
         ]);
 
         expect(val0).toBe(95);
@@ -171,8 +171,8 @@ describe("Number Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const valueStream = parser.getNumberProperty("value");
+        const parser = JsonStream.parse(stream);
+        const valueStream = parser.get<number>("value");
 
         // Use async iterator pattern
         const values: number[] = [];

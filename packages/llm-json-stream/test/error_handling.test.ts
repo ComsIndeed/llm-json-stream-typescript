@@ -1,6 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 function timeout(ms: number): Promise<never> {
     return new Promise((_, rej) =>
@@ -15,8 +14,8 @@ describe("Error Handling Tests", () => {
             chunkSize: 5,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
-        expect(await parser.getStringProperty("name").promise).toBe("Alice");
+        const parser = JsonStream.parse(stream);
+        expect(await parser.get<string>("name")).toBe("Alice");
     });
 
     test("slow stream times out", async () => {
@@ -25,9 +24,9 @@ describe("Error Handling Tests", () => {
             chunkSize: 5,
             interval: 1000,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
         await expect(
-            Promise.race([parser.getNumberProperty("v").promise, timeout(200)]),
+            Promise.race([parser.get<number>("v"), timeout(200)]),
         ).rejects.toThrow("Timeout");
     });
 });
@@ -39,8 +38,8 @@ describe("Edge Cases", () => {
             chunkSize: 5,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
-        expect(await parser.getObjectProperty("").promise).toEqual({});
+        const parser = JsonStream.parse(stream);
+        expect(await parser.get<Record<string, any>>("")).toEqual({});
     });
 
     test("whitespace", async () => {
@@ -49,8 +48,7 @@ describe("Edge Cases", () => {
             chunkSize: 5,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
-        expect(await parser.getNumberProperty("a").promise).toBe(1);
+        const parser = JsonStream.parse(stream);
+        expect(await parser.get<number>("a")).toBe(1);
     });
 });
-

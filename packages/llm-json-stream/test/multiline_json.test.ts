@@ -3,8 +3,8 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
+
 
 describe("Multiline JSON Tests", () => {
     test("JSON with newlines in strings", async () => {
@@ -15,10 +15,10 @@ describe("Multiline JSON Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const textStream = parser.getStringProperty("text");
+        const parser = JsonStream.parse(stream);
+        const textStream = parser.get<string>("text");
 
-        const result = await textStream.promise;
+        const result = await textStream;
         expect(result).toBe("Line 1\nLine 2\nLine 3");
     });
 
@@ -33,11 +33,11 @@ describe("Multiline JSON Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const name = parser.getStringProperty("name");
-        const age = parser.getNumberProperty("age");
+        const parser = JsonStream.parse(stream);
+        const name = parser.get<string>("name");
+        const age = parser.get<number>("age");
 
-        const [nameVal, ageVal] = await Promise.all([name.promise, age.promise]);
+        const [nameVal, ageVal] = await Promise.all([name, age]);
 
         expect(nameVal).toBe("Alice");
         expect(ageVal).toBe(30);
@@ -51,11 +51,11 @@ describe("Multiline JSON Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const a = parser.getNumberProperty("a");
-        const b = parser.getNumberProperty("b");
+        const parser = JsonStream.parse(stream);
+        const a = parser.get<number>("a");
+        const b = parser.get<number>("b");
 
-        const [aVal, bVal] = await Promise.all([a.promise, b.promise]);
+        const [aVal, bVal] = await Promise.all([a, b]);
 
         expect(aVal).toBe(1);
         expect(bVal).toBe(2);
@@ -82,11 +82,11 @@ describe("Multiline JSON Tests", () => {
             interval: 10,
         });
 
-        const parser1 = new JsonStreamParser(stream1);
-        const parser2 = new JsonStreamParser(stream2);
+        const parser1 = JsonStream.parse(stream1);
+        const parser2 = JsonStream.parse(stream2);
 
-        const name1 = await parser1.getStringProperty("user.name").promise;
-        const name2 = await parser2.getStringProperty("user.name").promise;
+        const name1 = await parser1.get<string>("user.name");
+        const name2 = await parser2.get<string>("user.name");
 
         expect(name1).toBe(name2);
         expect(name1).toBe("Bob");
@@ -100,10 +100,10 @@ describe("Multiline JSON Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const poemStream = parser.getStringProperty("poem");
+        const parser = JsonStream.parse(stream);
+        const poemStream = parser.get<string>("poem");
 
-        const result = await poemStream.promise;
+        const result = await poemStream;
         expect(result).toBe("Roses are red\nViolets are blue");
     });
 });

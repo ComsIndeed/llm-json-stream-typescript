@@ -4,8 +4,7 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 describe("Bug Diagnosis Tests", () => {
     test("diagnose: property not completing", async () => {
@@ -18,11 +17,11 @@ describe("Bug Diagnosis Tests", () => {
             interval: 50, // Longer delay
         });
 
-        const parser = new JsonStreamParser(stream);
-        const valueStream = parser.getNumberProperty("value");
+        const parser = JsonStream.parse(stream);
+        const valueStream = parser.get<number>("value");
 
         const startTime = Date.now();
-        const value = await valueStream.promise;
+        const value = await valueStream;
         const elapsed = Date.now() - startTime;
 
         expect(value).toBe(42);
@@ -39,8 +38,8 @@ describe("Bug Diagnosis Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const textStream = parser.getStringProperty("text");
+        const parser = JsonStream.parse(stream);
+        const textStream = parser.get<string>("text");
 
         let eventCount = 0;
         for await (const chunk of textStream) {
@@ -60,13 +59,13 @@ describe("Bug Diagnosis Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         const [int, float, neg, sci] = await Promise.all([
-            parser.getNumberProperty("int").promise,
-            parser.getNumberProperty("float").promise,
-            parser.getNumberProperty("neg").promise,
-            parser.getNumberProperty("sci").promise,
+            parser.get<number>("int"),
+            parser.get<number>("float"),
+            parser.get<number>("neg"),
+            parser.get<number>("sci"),
         ]);
 
         expect(int).toBe(42);
@@ -75,8 +74,8 @@ describe("Bug Diagnosis Tests", () => {
         expect(sci).toBe(100000);
     });
 
-    test("diagnose: memory leak in callbacks", async () => {
-        // Test that callbacks don't accumulate
+    test("diagnose: array parsing and iteration", async () => {
+        // Test that array elements are properly accessible
         const json = '{"list":[1,2,3,4,5]}';
 
         const stream = streamTextInChunks({
@@ -85,18 +84,9 @@ describe("Bug Diagnosis Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const listStream = parser.getArrayProperty("list");
+        const parser = JsonStream.parse(stream);
 
-        const elements: number[] = [];
-
-        // Add callback - receives the stream, await its promise to get the value
-        listStream.onElement(async (elementStream) => {
-            const value = await elementStream.promise;
-            elements.push(value as number);
-        });
-
-        await listStream.promise;
+        const elements = await parser.get<number[]>("list");
 
         // Dispose should clean up
         parser.dispose();
@@ -114,13 +104,13 @@ describe("Bug Diagnosis Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         // Access properties concurrently
         const promises = [
-            parser.getNumberProperty("a").promise,
-            parser.getNumberProperty("b").promise,
-            parser.getNumberProperty("c").promise,
+            parser.get<number>("a"),
+            parser.get<number>("b"),
+            parser.get<number>("c"),
         ];
 
         const [a, b, c] = await Promise.all(promises);
@@ -138,9 +128,8 @@ describe("Bug Diagnosis Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const value = await parser.getStringProperty("longPropertyName")
-            .promise;
+        const parser = JsonStream.parse(stream);
+        const value = await parser.get<string>("longPropertyName");
 
         expect(value).toBe("longPropertyValue");
     });
@@ -155,8 +144,8 @@ describe("Bug Diagnosis Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const path = await parser.getStringProperty("path").promise;
+        const parser = JsonStream.parse(stream);
+        const path = await parser.get<string>("path");
 
         expect(path).toBe("C:\\Users\\test\\file.txt");
     });
@@ -171,11 +160,11 @@ describe("Bug Diagnosis Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         // Access child before parent completes
-        const childPromise = parser.getStringProperty("parent.child").promise;
-        const otherPromise = parser.getStringProperty("other").promise;
+        const childPromise = parser.get<string>("parent.child");
+        const otherPromise = parser.get<string>("other");
 
         const [child, other] = await Promise.all([childPromise, otherPromise]);
 
@@ -183,4 +172,3 @@ describe("Bug Diagnosis Tests", () => {
         expect(other).toBe("data");
     });
 });
-

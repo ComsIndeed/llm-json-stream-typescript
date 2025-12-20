@@ -7,8 +7,7 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../../src/index.js";
 
 describe("List Property Tests", () => {
     test("simple array of numbers", async () => {
@@ -19,10 +18,10 @@ describe("List Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const numbersStream = parser.getArrayProperty("numbers");
+        const parser = JsonStream.parse(stream);
+        const numbersStream = parser.get<any[]>("numbers");
 
-        const finalValue = await numbersStream.promise;
+        const finalValue = await numbersStream;
         expect(finalValue).toEqual([1, 2, 3]);
     });
 
@@ -34,10 +33,10 @@ describe("List Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const itemsStream = parser.getArrayProperty("items");
+        const parser = JsonStream.parse(stream);
+        const itemsStream = parser.get<any[]>("items");
 
-        const finalValue = await itemsStream.promise;
+        const finalValue = await itemsStream;
         expect(finalValue).toEqual([]);
     });
 
@@ -49,10 +48,10 @@ describe("List Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const namesStream = parser.getArrayProperty("names");
+        const parser = JsonStream.parse(stream);
+        const namesStream = parser.get<any[]>("names");
 
-        const finalValue = await namesStream.promise;
+        const finalValue = await namesStream;
         expect(finalValue).toEqual(["Alice", "Bob", "Charlie"]);
     });
 
@@ -64,10 +63,10 @@ describe("List Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const usersStream = parser.getArrayProperty("users");
+        const parser = JsonStream.parse(stream);
+        const usersStream = parser.get<any[]>("users");
 
-        const finalValue = await usersStream.promise;
+        const finalValue = await usersStream;
         expect(finalValue).toEqual([{ name: "Alice" }, { name: "Bob" }]);
     });
 
@@ -79,10 +78,10 @@ describe("List Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const matrixStream = parser.getArrayProperty("matrix");
+        const parser = JsonStream.parse(stream);
+        const matrixStream = parser.get<any[]>("matrix");
 
-        const finalValue = await matrixStream.promise;
+        const finalValue = await matrixStream;
         expect(finalValue).toEqual([[1, 2], [3, 4]]);
     });
 
@@ -94,10 +93,10 @@ describe("List Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const mixedStream = parser.getArrayProperty("mixed");
+        const parser = JsonStream.parse(stream);
+        const mixedStream = parser.get<any[]>("mixed");
 
-        const finalValue = await mixedStream.promise;
+        const finalValue = await mixedStream;
         expect(finalValue).toEqual([1, "text", true, null]);
     });
 
@@ -109,15 +108,15 @@ describe("List Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const item0 = parser.getStringProperty("items[0]");
-        const item1 = parser.getStringProperty("items[1]");
-        const item2 = parser.getStringProperty("items[2]");
+        const parser = JsonStream.parse(stream);
+        const item0 = parser.get<string>("items[0]");
+        const item1 = parser.get<string>("items[1]");
+        const item2 = parser.get<string>("items[2]");
 
         const [val0, val1, val2] = await Promise.all([
-            item0.promise,
-            item1.promise,
-            item2.promise,
+            item0,
+            item1,
+            item2,
         ]);
 
         expect(val0).toBe("first");
@@ -125,7 +124,7 @@ describe("List Property Tests", () => {
         expect(val2).toBe("third");
     });
 
-    test("onElement callback fires for each element", async () => {
+    test("array iteration with for await", async () => {
         const json = '{"items":[1,2,3,4,5]}';
         const stream = streamTextInChunks({
             text: json,
@@ -133,20 +132,21 @@ describe("List Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const itemsStream = parser.getArrayProperty("items");
+        const parser = JsonStream.parse(stream);
+        const itemsStream = parser.get<number[]>("items");
 
-        const callbackFired: number[] = [];
-        itemsStream.onElement((element, index) => {
-            callbackFired.push(index);
-        });
+        const snapshots: number[][] = [];
+        for await (const snapshot of itemsStream) {
+            snapshots.push([...snapshot]);
+        }
 
-        await itemsStream.promise;
-
-        expect(callbackFired).toEqual([0, 1, 2, 3, 4]);
+        // Should have received incremental snapshots
+        expect(snapshots.length).toBeGreaterThan(0);
+        // Final snapshot should have all items
+        expect(snapshots[snapshots.length - 1]).toEqual([1, 2, 3, 4, 5]);
     });
 
-    test("onElement callback receives correct index", async () => {
+    test("array elements accessible by index", async () => {
         const json = '{"data":["a","b","c"]}';
         const stream = streamTextInChunks({
             text: json,
@@ -154,17 +154,17 @@ describe("List Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const dataStream = parser.getArrayProperty("data");
+        const parser = JsonStream.parse(stream);
 
-        const indices: number[] = [];
-        dataStream.onElement((element, index) => {
-            indices.push(index);
-        });
+        const [el0, el1, el2] = await Promise.all([
+            parser.get<string>("data[0]"),
+            parser.get<string>("data[1]"),
+            parser.get<string>("data[2]"),
+        ]);
 
-        await dataStream.promise;
-
-        expect(indices).toEqual([0, 1, 2]);
+        expect(el0).toBe("a");
+        expect(el1).toBe("b");
+        expect(el2).toBe("c");
     });
 
     test("accessing properties of array elements", async () => {
@@ -176,13 +176,13 @@ describe("List Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const user0Name = parser.getStringProperty("users[0].name");
-        const user1Name = parser.getStringProperty("users[1].name");
+        const parser = JsonStream.parse(stream);
+        const user0Name = parser.get<string>("users[0].name");
+        const user1Name = parser.get<string>("users[1].name");
 
         const [name0, name1] = await Promise.all([
-            user0Name.promise,
-            user1Name.promise,
+            user0Name,
+            user1Name,
         ]);
 
         expect(name0).toBe("Alice");
@@ -197,10 +197,10 @@ describe("List Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const deepArray = parser.getArrayProperty("level1[0].level2[0].level3");
+        const parser = JsonStream.parse(stream);
+        const deepArray = parser.get<any[]>("level1[0].level2[0].level3");
 
-        const finalValue = await deepArray.promise;
+        const finalValue = await deepArray;
         expect(finalValue).toEqual([1, 2, 3]);
     });
 
@@ -213,10 +213,10 @@ describe("List Property Tests", () => {
             interval: 0, // No delay for performance test
         });
 
-        const parser = new JsonStreamParser(stream);
-        const numbersStream = parser.getArrayProperty("numbers");
+        const parser = JsonStream.parse(stream);
+        const numbersStream = parser.get<any[]>("numbers");
 
-        const finalValue = await numbersStream.promise;
+        const finalValue = await numbersStream;
         expect(finalValue).toEqual(numbers);
         expect(finalValue.length).toBe(100);
     });
@@ -229,8 +229,8 @@ describe("List Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const itemsStream = parser.getArrayProperty("items");
+        const parser = JsonStream.parse(stream);
+        const itemsStream = parser.get<any[]>("items");
 
         // Collect all snapshots using async iterator
         const snapshots: any[][] = [];
@@ -244,4 +244,3 @@ describe("List Property Tests", () => {
         expect(snapshots[snapshots.length - 1]).toEqual([1, 2, 3]);
     });
 });
-

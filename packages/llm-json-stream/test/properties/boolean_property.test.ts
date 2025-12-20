@@ -7,8 +7,8 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../../src/index.js";
+
 
 describe("Boolean Property Tests", () => {
     test("true value", async () => {
@@ -19,8 +19,8 @@ describe("Boolean Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const activeStream = parser.getBooleanProperty("active");
+        const parser = JsonStream.parse(stream);
+        const activeStream = parser.get<boolean>("active");
 
         // Collect stream events using async iterator
         const streamEvents: boolean[] = [];
@@ -29,7 +29,7 @@ describe("Boolean Property Tests", () => {
         }
 
         // Wait for the future to resolve
-        const finalValue = await activeStream.promise;
+        const finalValue = await activeStream;
 
         // Should emit the boolean value once when complete
         expect(streamEvents).toEqual([true]);
@@ -44,15 +44,15 @@ describe("Boolean Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const enabledStream = parser.getBooleanProperty("enabled");
+        const parser = JsonStream.parse(stream);
+        const enabledStream = parser.get<boolean>("enabled");
 
         const streamEvents: boolean[] = [];
         for await (const value of enabledStream) {
             streamEvents.push(value);
         }
 
-        const finalValue = await enabledStream.promise;
+        const finalValue = await enabledStream;
 
         expect(streamEvents).toEqual([false]);
         expect(finalValue).toBe(false);
@@ -66,10 +66,10 @@ describe("Boolean Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const verifiedStream = parser.getBooleanProperty("user.verified");
+        const parser = JsonStream.parse(stream);
+        const verifiedStream = parser.get<boolean>("user.verified");
 
-        const finalValue = await verifiedStream.promise;
+        const finalValue = await verifiedStream;
         expect(finalValue).toBe(true);
     });
 
@@ -81,15 +81,15 @@ describe("Boolean Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const flag0 = parser.getBooleanProperty("flags[0]");
-        const flag1 = parser.getBooleanProperty("flags[1]");
-        const flag2 = parser.getBooleanProperty("flags[2]");
+        const parser = JsonStream.parse(stream);
+        const flag0 = parser.get<boolean>("flags[0]");
+        const flag1 = parser.get<boolean>("flags[1]");
+        const flag2 = parser.get<boolean>("flags[2]");
 
         const [val0, val1, val2] = await Promise.all([
-            flag0.promise,
-            flag1.promise,
-            flag2.promise,
+            flag0,
+            flag1,
+            flag2,
         ]);
 
         expect(val0).toBe(true);
@@ -105,15 +105,15 @@ describe("Boolean Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const active = parser.getBooleanProperty("active");
-        const enabled = parser.getBooleanProperty("enabled");
-        const verified = parser.getBooleanProperty("verified");
+        const parser = JsonStream.parse(stream);
+        const active = parser.get<boolean>("active");
+        const enabled = parser.get<boolean>("enabled");
+        const verified = parser.get<boolean>("verified");
 
         const [activeVal, enabledVal, verifiedVal] = await Promise.all([
-            active.promise,
-            enabled.promise,
-            verified.promise,
+            active,
+            enabled,
+            verified,
         ]);
 
         expect(activeVal).toBe(true);
@@ -129,8 +129,8 @@ describe("Boolean Property Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const flagStream = parser.getBooleanProperty("flag");
+        const parser = JsonStream.parse(stream);
+        const flagStream = parser.get<boolean>("flag");
 
         // Use async iterator pattern
         const values: boolean[] = [];

@@ -3,8 +3,7 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 describe("Comprehensive Value Retrieval Tests", () => {
     test("retrieve all property types from complex JSON", async () => {
@@ -17,15 +16,15 @@ describe("Comprehensive Value Retrieval Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         const [name, age, active, data, tags, meta] = await Promise.all([
-            parser.getStringProperty("name").promise,
-            parser.getNumberProperty("age").promise,
-            parser.getBooleanProperty("active").promise,
-            parser.getNullProperty("data").promise,
-            parser.getArrayProperty("tags").promise,
-            parser.getObjectProperty("meta").promise,
+            parser.get<string>("name"),
+            parser.get<number>("age"),
+            parser.get<boolean>("active"),
+            parser.get<null>("data"),
+            parser.get<any[]>("tags"),
+            parser.get<Record<string, any>>("meta"),
         ]);
 
         expect(name).toBe("Alice");
@@ -46,10 +45,9 @@ describe("Comprehensive Value Retrieval Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const name = await parser.getStringProperty("user.profile.name").promise;
-        const email = await parser.getStringProperty("user.profile.email")
-            .promise;
+        const parser = JsonStream.parse(stream);
+        const name = await parser.get<string>("user.profile.name");
+        const email = await parser.get<string>("user.profile.email");
 
         expect(name).toBe("Bob");
         expect(email).toBe("bob@test.com");
@@ -64,12 +62,12 @@ describe("Comprehensive Value Retrieval Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         const [item0, item1, item2] = await Promise.all([
-            parser.getStringProperty("items[0]").promise,
-            parser.getStringProperty("items[1]").promise,
-            parser.getStringProperty("items[2]").promise,
+            parser.get<string>("items[0]"),
+            parser.get<string>("items[1]"),
+            parser.get<string>("items[2]"),
         ]);
 
         expect(item0).toBe("first");
@@ -86,8 +84,8 @@ describe("Comprehensive Value Retrieval Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const value = await parser.getStringProperty("a.b.c.d.e").promise;
+        const parser = JsonStream.parse(stream);
+        const value = await parser.get<string>("a.b.c.d.e");
 
         expect(value).toBe("deep");
     });
@@ -101,14 +99,14 @@ describe("Comprehensive Value Retrieval Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         const [a, b, c, d, e] = await Promise.all([
-            parser.getNumberProperty("a").promise,
-            parser.getNumberProperty("b").promise,
-            parser.getNumberProperty("c").promise,
-            parser.getNumberProperty("d").promise,
-            parser.getNumberProperty("e").promise,
+            parser.get<number>("a"),
+            parser.get<number>("b"),
+            parser.get<number>("c"),
+            parser.get<number>("d"),
+            parser.get<number>("e"),
         ]);
 
         expect([a, b, c, d, e]).toEqual([1, 2, 3, 4, 5]);
@@ -123,11 +121,11 @@ describe("Comprehensive Value Retrieval Tests", () => {
             interval: 50,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const valueStream = parser.getNumberProperty("value");
+        const parser = JsonStream.parse(stream);
+        const valueStream = parser.get<number>("value");
 
         // Access property before stream has delivered value
-        const value = await valueStream.promise;
+        const value = await valueStream;
         expect(value).toBe(42);
     });
 
@@ -140,14 +138,14 @@ describe("Comprehensive Value Retrieval Tests", () => {
             interval: 20,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         // Start accessing first property
-        const firstPromise = parser.getNumberProperty("first").promise;
+        const firstPromise = parser.get<number>("first");
 
         // Wait a bit, then access second
         await new Promise((resolve) => setTimeout(resolve, 30));
-        const secondPromise = parser.getNumberProperty("second").promise;
+        const secondPromise = parser.get<number>("second");
 
         const [first, second] = await Promise.all([
             firstPromise,
@@ -167,16 +165,15 @@ describe("Comprehensive Value Retrieval Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         // Wait for stream to complete
         await new Promise((resolve) => setTimeout(resolve, 200));
 
         // Access property after stream has completed
-        const valueStream = parser.getNumberProperty("value");
-        const value = await valueStream.promise;
+        const valueStream = parser.get<number>("value");
+        const value = await valueStream;
 
         expect(value).toBe(42);
     });
 });
-

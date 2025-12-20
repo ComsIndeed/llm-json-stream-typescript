@@ -1,6 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 describe("Incremental Updates", () => {
     test("String via promise returns complete value", async () => {
@@ -9,10 +8,10 @@ describe("Incremental Updates", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const stringStream = parser.getStringProperty("name");
-        const complete = await stringStream.promise;
+        const stringStream = parser.get<string>("name");
+        const complete = await stringStream;
 
         expect(complete).toBe("Alice");
     });
@@ -23,9 +22,9 @@ describe("Incremental Updates", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const stringStream = parser.getStringProperty("message");
+        const stringStream = parser.get<string>("message");
         const emittedStrings: string[] = [];
 
         for await (const chunk of stringStream) {
@@ -46,9 +45,9 @@ describe("Incremental Updates", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const mapStream = parser.getObjectProperty("");
+        const mapStream = parser.get<Record<string, any>>("");
         const emittedMaps: Record<string, any>[] = [];
 
         for await (const snapshot of mapStream) {
@@ -69,9 +68,9 @@ describe("Incremental Updates", () => {
             chunkSize: 5,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const listStream = parser.getArrayProperty("items");
+        const listStream = parser.get<any[]>("items");
         const emittedLists: any[][] = [];
 
         for await (const snapshot of listStream) {
@@ -92,18 +91,18 @@ describe("Incremental Updates", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         // Get streams for nested properties
-        const userStream = parser.getObjectProperty("user");
-        const nameStream = parser.getStringProperty("user.name");
-        const cityStream = parser.getStringProperty("user.profile.city");
+        const userStream = parser.get<Record<string, any>>("user");
+        const nameStream = parser.get<string>("user.name");
+        const cityStream = parser.get<string>("user.profile.city");
 
         // All should resolve with correct values
         const [user, name, city] = await Promise.all([
-            userStream.promise,
-            nameStream.promise,
-            cityStream.promise,
+            userStream,
+            nameStream,
+            cityStream,
         ]);
 
         expect(name).toBe("Bob");
@@ -111,28 +110,23 @@ describe("Incremental Updates", () => {
         expect(user).toEqual({ name: "Bob", profile: { city: "NYC" } });
     });
 
-    test("Array elements accessible via onElement", async () => {
+    test("Array elements accessible via index", async () => {
         const stream = streamTextInChunks({
             text: '{"numbers":[10,20,30,40,50]}',
             chunkSize: 5,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const listStream = parser.getArrayProperty("numbers");
-        const elements: number[] = [];
-        const indices: number[] = [];
+        const [n0, n1, n2, n3, n4] = await Promise.all([
+            parser.get<number>("numbers[0]"),
+            parser.get<number>("numbers[1]"),
+            parser.get<number>("numbers[2]"),
+            parser.get<number>("numbers[3]"),
+            parser.get<number>("numbers[4]"),
+        ]);
 
-        listStream.onElement(async (elementStream, index) => {
-            const value = await elementStream.promise;
-            elements.push(value as number);
-            indices.push(index);
-        });
-
-        await listStream.promise;
-
-        expect(elements).toEqual([10, 20, 30, 40, 50]);
-        expect(indices).toEqual([0, 1, 2, 3, 4]);
+        expect([n0, n1, n2, n3, n4]).toEqual([10, 20, 30, 40, 50]);
     });
 
     test("Atomic values emit once via async iterator", async () => {
@@ -141,9 +135,9 @@ describe("Incremental Updates", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const numberStream = parser.getNumberProperty("count");
+        const numberStream = parser.get<number>("count");
         const numberEmissions: any[] = [];
 
         for await (const v of numberStream) {
@@ -154,7 +148,7 @@ describe("Incremental Updates", () => {
         expect(numberEmissions).toEqual([42]);
 
         // Promise returns the actual typed value
-        expect(await numberStream.promise).toBe(42);
+        expect(await numberStream).toBe(42);
     });
 
     test("Boolean values emit once via async iterator", async () => {
@@ -163,9 +157,9 @@ describe("Incremental Updates", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const boolStream = parser.getBooleanProperty("active");
+        const boolStream = parser.get<boolean>("active");
         const boolEmissions: any[] = [];
 
         for await (const v of boolStream) {
@@ -173,7 +167,7 @@ describe("Incremental Updates", () => {
         }
 
         expect(boolEmissions).toEqual([true]);
-        expect(await boolStream.promise).toBe(true);
+        expect(await boolStream).toBe(true);
     });
 
     test("Null values emit once via async iterator", async () => {
@@ -182,9 +176,9 @@ describe("Incremental Updates", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const nullStream = parser.getNullProperty("data");
+        const nullStream = parser.get<null>("data");
         const nullEmissions: any[] = [];
 
         for await (const v of nullStream) {
@@ -192,7 +186,7 @@ describe("Incremental Updates", () => {
         }
 
         expect(nullEmissions).toEqual([null]);
-        expect(await nullStream.promise).toBe(null);
+        expect(await nullStream).toBe(null);
     });
 
     test("Late subscription still gets value via promise", async () => {
@@ -201,14 +195,14 @@ describe("Incremental Updates", () => {
             chunkSize: 100, // Large chunk to parse all at once
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         // Wait a bit for parsing to complete
         await new Promise((resolve) => setTimeout(resolve, 50));
 
         // Now subscribe - should still get the value
-        const titleStream = parser.getStringProperty("title");
-        const value = await titleStream.promise;
+        const titleStream = parser.get<string>("title");
+        const value = await titleStream;
 
         expect(value).toBe("Hello World");
     });
@@ -223,9 +217,9 @@ describe("Incremental Updates - Streaming Strings", () => {
             chunkSize: 15,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const contentStream = parser.getStringProperty("content");
+        const contentStream = parser.get<string>("content");
         const chunks: string[] = [];
 
         for await (const chunk of contentStream) {
@@ -245,12 +239,11 @@ describe("Incremental Updates - Streaming Strings", () => {
             chunkSize: 5,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const emptyStream = parser.getStringProperty("empty");
-        const value = await emptyStream.promise;
+        const emptyStream = parser.get<string>("empty");
+        const value = await emptyStream;
 
         expect(value).toBe("");
     });
 });
-

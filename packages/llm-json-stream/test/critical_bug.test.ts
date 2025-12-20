@@ -3,8 +3,7 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 describe("Critical Bug Tests", () => {
     test("chunk boundary bug - string not flushing", async () => {
@@ -17,8 +16,8 @@ describe("Critical Bug Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const messageStream = parser.getStringProperty("message");
+        const parser = JsonStream.parse(stream);
+        const messageStream = parser.get<string>("message");
 
         const chunks: string[] = [];
         const collectChunks = (async () => {
@@ -27,15 +26,15 @@ describe("Critical Bug Tests", () => {
             }
         })();
 
-        const message = await messageStream.promise;
+        const message = await messageStream;
         await collectChunks;
 
         expect(message).toBe("Hello World");
         expect(chunks.length).toBeGreaterThan(0); // Should have emitted chunks
     });
 
-    test("nested list callback disposal bug", async () => {
-        // Tests proper cleanup of onElement callbacks
+    test("nested list index access", async () => {
+        // Tests accessing nested array elements by index
         const json = '{"outer":[{"inner":[1,2,3]}]}';
 
         const stream = streamTextInChunks({
@@ -44,25 +43,15 @@ describe("Critical Bug Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const outerStream = parser.getArrayProperty("outer");
+        const parser = JsonStream.parse(stream);
 
-        let innerCallbackCount = 0;
+        const [inner0, inner1, inner2] = await Promise.all([
+            parser.get<number>("outer[0].inner[0]"),
+            parser.get<number>("outer[0].inner[1]"),
+            parser.get<number>("outer[0].inner[2]"),
+        ]);
 
-        outerStream.onElement((element, index) => {
-            if (index === 0) {
-                // Access nested list
-                const innerStream = parser.getArrayProperty("outer[0].inner");
-                innerStream.onElement(() => {
-                    innerCallbackCount++;
-                });
-            }
-        });
-
-        await outerStream.promise;
-
-        // Callbacks should have been called
-        expect(innerCallbackCount).toBe(3);
+        expect([inner0, inner1, inner2]).toEqual([1, 2, 3]);
 
         // Dispose should clean up without errors
         parser.dispose();
@@ -81,9 +70,9 @@ describe("Critical Bug Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const name = await parser.getStringProperty("name").promise;
-        const value = await parser.getNumberProperty("value").promise;
+        const parser = JsonStream.parse(stream);
+        const name = await parser.get<string>("name");
+        const value = await parser.get<number>("value");
 
         expect(name).toBe("Test");
         expect(value).toBe(42);
@@ -99,8 +88,8 @@ describe("Critical Bug Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const text = await parser.getStringProperty("text").promise;
+        const parser = JsonStream.parse(stream);
+        const text = await parser.get<string>("text");
 
         expect(text).toBe('Line\nBreak\tTab"Quote\\Backslash');
     });
@@ -115,12 +104,12 @@ describe("Critical Bug Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         // Access in different orders
         const [direct, stepped] = await Promise.all([
-            parser.getStringProperty("a.b.c").promise,
-            parser.getObjectProperty("a.b").promise.then((map) => map.c),
+            parser.get<string>("a.b.c"),
+            parser.get<Record<string, any>>("a.b").then((map) => map.c),
         ]);
 
         expect(direct).toBe("value");
@@ -137,8 +126,8 @@ describe("Critical Bug Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const value = await parser.getNumberProperty("value").promise;
+        const parser = JsonStream.parse(stream);
+        const value = await parser.get<number>("value");
 
         // JavaScript number precision limits apply
         expect(typeof value).toBe("number");
@@ -155,14 +144,13 @@ describe("Critical Bug Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
         const [empty, notEmpty] = await Promise.all([
-            parser.getStringProperty("empty").promise,
-            parser.getStringProperty("notEmpty").promise,
+            parser.get<string>("empty"),
+            parser.get<string>("notEmpty"),
         ]);
 
         expect(empty).toBe("");
         expect(notEmpty).toBe("value");
     });
 });
-

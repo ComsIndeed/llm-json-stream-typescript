@@ -1,6 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 describe("Trailing Commas - All Value Types in Arrays", () => {
     test("trailing comma after string in array", async () => {
@@ -11,9 +10,9 @@ describe("Trailing Commas - All Value Types in Arrays", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const items = await parser.getArrayProperty("items").promise;
+        const items = await parser.get<any[]>("items");
 
         expect(items).toEqual(["first", "second", "last"]);
     });
@@ -26,9 +25,9 @@ describe("Trailing Commas - All Value Types in Arrays", () => {
             chunkSize: 6,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const nums = await parser.getArrayProperty("nums").promise;
+        const nums = await parser.get<any[]>("nums");
 
         expect(nums).toEqual([1, 2, 42]);
     });
@@ -41,9 +40,9 @@ describe("Trailing Commas - All Value Types in Arrays", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const prices = await parser.getArrayProperty("prices").promise;
+        const prices = await parser.get<any[]>("prices");
 
         expect(prices).toEqual([19.99, 29.99, 39.99]);
     });
@@ -56,9 +55,9 @@ describe("Trailing Commas - All Value Types in Arrays", () => {
             chunkSize: 7,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const flags = await parser.getArrayProperty("flags").promise;
+        const flags = await parser.get<any[]>("flags");
 
         expect(flags).toEqual([false, true, true]);
     });
@@ -71,9 +70,9 @@ describe("Trailing Commas - All Value Types in Arrays", () => {
             chunkSize: 7,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const flags = await parser.getArrayProperty("flags").promise;
+        const flags = await parser.get<any[]>("flags");
 
         expect(flags).toEqual([true, true, false]);
     });
@@ -86,9 +85,9 @@ describe("Trailing Commas - All Value Types in Arrays", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const nullable = await parser.getArrayProperty("nullable").promise;
+        const nullable = await parser.get<any[]>("nullable");
 
         expect(nullable).toEqual([1, "text", null]);
     });
@@ -101,9 +100,9 @@ describe("Trailing Commas - All Value Types in Arrays", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const items = await parser.getArrayProperty("items").promise;
+        const items = await parser.get<any[]>("items");
 
         expect(items.length).toBe(3);
         expect(items[2]).toEqual({ c: 3 });
@@ -117,9 +116,9 @@ describe("Trailing Commas - All Value Types in Arrays", () => {
             chunkSize: 9,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const matrix = await parser.getArrayProperty("matrix").promise;
+        const matrix = await parser.get<any[]>("matrix");
 
         expect(matrix.length).toBe(3);
         expect(matrix[2]).toEqual([5, 6]);
@@ -133,9 +132,9 @@ describe("Trailing Commas - All Value Types in Arrays", () => {
             chunkSize: 7,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const strings = await parser.getArrayProperty("strings").promise;
+        const strings = await parser.get<any[]>("strings");
 
         expect(strings).toEqual(["a", "b", ""]);
     });
@@ -148,9 +147,9 @@ describe("Trailing Commas - All Value Types in Arrays", () => {
             chunkSize: 6,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const nums = await parser.getArrayProperty("nums").promise;
+        const nums = await parser.get<any[]>("nums");
 
         expect(nums).toEqual([1, 2, 0]);
     });
@@ -163,9 +162,9 @@ describe("Trailing Commas - All Value Types in Arrays", () => {
             chunkSize: 7,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const nums = await parser.getArrayProperty("nums").promise;
+        const nums = await parser.get<any[]>("nums");
 
         expect(nums).toEqual([10, -5, -99]);
     });
@@ -180,9 +179,9 @@ describe("Trailing Commas - All Value Types in Objects", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const result = await parser.getObjectProperty("").promise;
+        const result = await parser.get<Record<string, any>>("");
 
         expect(result).toEqual({ name: "Alice", city: "NYC" });
     });
@@ -195,9 +194,9 @@ describe("Trailing Commas - All Value Types in Objects", () => {
             chunkSize: 6,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const result = await parser.getObjectProperty("").promise;
+        const result = await parser.get<Record<string, any>>("");
 
         expect(result).toEqual({ a: 1, b: 2, c: 3 });
     });
@@ -210,9 +209,9 @@ describe("Trailing Commas - All Value Types in Objects", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const result = await parser.getObjectProperty("").promise;
+        const result = await parser.get<Record<string, any>>("");
 
         expect(result).toEqual({ active: true, verified: false });
     });
@@ -225,9 +224,9 @@ describe("Trailing Commas - All Value Types in Objects", () => {
             chunkSize: 7,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const result = await parser.getObjectProperty("").promise;
+        const result = await parser.get<Record<string, any>>("");
 
         expect(result).toEqual({ value: 42, data: null });
     });
@@ -240,9 +239,9 @@ describe("Trailing Commas - All Value Types in Objects", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const result = await parser.getObjectProperty("").promise;
+        const result = await parser.get<Record<string, any>>("");
 
         expect(result).toEqual({ user: { name: "Bob" } });
     });
@@ -255,9 +254,9 @@ describe("Trailing Commas - All Value Types in Objects", () => {
             chunkSize: 6,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const result = await parser.getObjectProperty("").promise;
+        const result = await parser.get<Record<string, any>>("");
 
         expect(result).toEqual({ items: [1, 2, 3] });
     });
@@ -272,9 +271,9 @@ describe("Trailing Commas - Multiple Levels", () => {
             chunkSize: 7,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const data = await parser.getArrayProperty("data").promise;
+        const data = await parser.get<any[]>("data");
 
         expect(data).toEqual([
             [1, 2],
@@ -290,9 +289,9 @@ describe("Trailing Commas - Multiple Levels", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const result = await parser.getObjectProperty("").promise;
+        const result = await parser.get<Record<string, any>>("");
 
         expect(result).toEqual({ outer: { inner: { value: 42 } } });
     });
@@ -305,9 +304,9 @@ describe("Trailing Commas - Multiple Levels", () => {
             chunkSize: 12,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const result = await parser.getObjectProperty("").promise;
+        const result = await parser.get<Record<string, any>>("");
 
         expect(result).toEqual({
             list: [{ a: 1 }, { b: 2 }],
@@ -325,9 +324,9 @@ describe("Trailing Commas - Edge Cases", () => {
             chunkSize: 5,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const single = await parser.getArrayProperty("single").promise;
+        const single = await parser.get<any[]>("single");
 
         expect(single).toEqual([42]);
     });
@@ -340,9 +339,9 @@ describe("Trailing Commas - Edge Cases", () => {
             chunkSize: 5,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const result = await parser.getObjectProperty("").promise;
+        const result = await parser.get<Record<string, any>>("");
 
         expect(result).toEqual({ only: "value" });
     });
@@ -355,9 +354,9 @@ describe("Trailing Commas - Edge Cases", () => {
             chunkSize: 5,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const empty = await parser.getArrayProperty("empty").promise;
+        const empty = await parser.get<any[]>("empty");
 
         expect(empty).toEqual([]);
     });
@@ -370,11 +369,10 @@ describe("Trailing Commas - Edge Cases", () => {
             chunkSize: 5,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const empty = await parser.getObjectProperty("empty").promise;
+        const empty = await parser.get<Record<string, any>>("empty");
 
         expect(empty).toEqual({});
     });
 });
-

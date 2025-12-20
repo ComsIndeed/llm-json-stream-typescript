@@ -3,8 +3,7 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 describe("Stream Completion Tests", () => {
     test("all properties complete when stream ends", async () => {
@@ -15,15 +14,15 @@ describe("Stream Completion Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const name = parser.getStringProperty("name");
-        const age = parser.getNumberProperty("age");
-        const active = parser.getBooleanProperty("active");
+        const parser = JsonStream.parse(stream);
+        const name = parser.get<string>("name");
+        const age = parser.get<number>("age");
+        const active = parser.get<boolean>("active");
 
         const [nameVal, ageVal, activeVal] = await Promise.all([
-            name.promise,
-            age.promise,
-            active.promise,
+            name,
+            age,
+            active,
         ]);
 
         expect(nameVal).toBe("Alice");
@@ -39,10 +38,10 @@ describe("Stream Completion Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const valueStream = parser.getNumberProperty("value");
+        const parser = JsonStream.parse(stream);
+        const valueStream = parser.get<number>("value");
 
-        const result = await valueStream.promise;
+        const result = await valueStream;
         expect(result).toBe(42);
     });
 
@@ -54,13 +53,13 @@ describe("Stream Completion Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const ageStream = parser.getNumberProperty("age");
+        const parser = JsonStream.parse(stream);
+        const ageStream = parser.get<number>("age");
 
         // This should either reject or timeout
         await expect(
             Promise.race([
-                ageStream.promise,
+                ageStream,
                 new Promise((_, reject) =>
                     setTimeout(() => reject(new Error("Timeout")), 500)
                 ),
@@ -76,8 +75,8 @@ describe("Stream Completion Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const messageStream = parser.getStringProperty("message");
+        const parser = JsonStream.parse(stream);
+        const messageStream = parser.get<string>("message");
 
         let listener1Completed = false;
         let listener2Completed = false;
@@ -97,7 +96,7 @@ describe("Stream Completion Tests", () => {
             listener2Completed = true;
         })();
 
-        await messageStream.promise;
+        await messageStream;
         await listener1;
         await listener2;
 
@@ -108,7 +107,7 @@ describe("Stream Completion Tests", () => {
         expect(listener2Completed).toBe(true);
     });
 
-    test("onElement callbacks complete for partial arrays", async () => {
+    test("array iteration completes properly", async () => {
         const json = '{"items":[1,2,3]}';
         const stream = streamTextInChunks({
             text: json,
@@ -116,17 +115,16 @@ describe("Stream Completion Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const itemsStream = parser.getArrayProperty("items");
+        const parser = JsonStream.parse(stream);
+        const itemsStream = parser.get<number[]>("items");
 
-        const elements: number[] = [];
-        itemsStream.onElement((element, index) => {
-            elements.push(index);
-        });
+        const snapshots: number[][] = [];
+        for await (const snapshot of itemsStream) {
+            snapshots.push([...snapshot]);
+        }
 
-        await itemsStream.promise;
-
-        expect(elements).toEqual([0, 1, 2]);
+        // Final value should contain all elements
+        expect(snapshots[snapshots.length - 1]).toEqual([1, 2, 3]);
     });
 
     test("nested property completion order", async () => {
@@ -137,15 +135,15 @@ describe("Stream Completion Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const outer = parser.getObjectProperty("outer");
-        const middle = parser.getObjectProperty("outer.middle");
-        const inner = parser.getStringProperty("outer.middle.inner");
+        const parser = JsonStream.parse(stream);
+        const outer = parser.get<Record<string, any>>("outer");
+        const middle = parser.get<Record<string, any>>("outer.middle");
+        const inner = parser.get<string>("outer.middle.inner");
 
         const [outerVal, middleVal, innerVal] = await Promise.all([
-            outer.promise,
-            middle.promise,
-            inner.promise,
+            outer,
+            middle,
+            inner,
         ]);
 
         expect(innerVal).toBe("value");
@@ -153,4 +151,3 @@ describe("Stream Completion Tests", () => {
         expect(outerVal).toEqual({ middle: { inner: "value" } });
     });
 });
-

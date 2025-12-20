@@ -102,8 +102,13 @@ export function createAsyncIterator<T>(): {
  *   console.log(chunk);
  * }
  * ```
+ *
+ * PropertyStream is also thenable, so you can directly await it:
+ * ```typescript
+ * const value = await propertyStream;
+ * ```
  */
-export class PropertyStream<T> implements AsyncIterable<T> {
+export class PropertyStream<T> implements AsyncIterable<T>, PromiseLike<T> {
     protected _promise: Promise<T>;
     protected parserController: JsonStreamParserController;
     protected _iteratorController: AsyncIteratorController<T>;
@@ -136,9 +141,42 @@ export class PropertyStream<T> implements AsyncIterable<T> {
     /**
      * A promise that resolves with the final parsed value of this property.
      * Use this when you need the complete value and don't need to react to partial chunks.
+     *
+     * @deprecated Use `await propertyStream` directly instead of `await propertyStream.promise`
      */
     get promise(): Promise<T> {
         return this._promise;
+    }
+
+    /**
+     * Makes PropertyStream thenable, allowing direct await usage.
+     *
+     * @example
+     * ```typescript
+     * const value = await propertyStream;
+     * ```
+     */
+    then<TResult1 = T, TResult2 = never>(
+        onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
+        onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
+    ): Promise<TResult1 | TResult2> {
+        return this._promise.then(onfulfilled, onrejected);
+    }
+
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     */
+    catch<TResult = never>(
+        onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | null,
+    ): Promise<T | TResult> {
+        return this._promise.catch(onrejected);
+    }
+
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected).
+     */
+    finally(onfinally?: (() => void) | null): Promise<T> {
+        return this._promise.finally(onfinally);
     }
 
     /**

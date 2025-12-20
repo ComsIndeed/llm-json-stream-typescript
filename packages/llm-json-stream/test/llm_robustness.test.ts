@@ -1,6 +1,5 @@
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 describe("LLM Robustness - Markdown Sanitization", () => {
     test("basic markdown block - strip ```json wrapper", async () => {
@@ -13,10 +12,10 @@ describe("LLM Robustness - Markdown Sanitization", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const name = await parser.getStringProperty("name").promise;
-        const age = await parser.getNumberProperty("age").promise;
+        const name = await parser.get<string>("name");
+        const age = await parser.get<number>("age");
 
         expect(name).toBe("Alice");
         expect(age).toBe(30);
@@ -32,9 +31,9 @@ describe("LLM Robustness - Markdown Sanitization", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const value = await parser.getBooleanProperty("value").promise;
+        const value = await parser.get<boolean>("value");
 
         expect(value).toBe(true);
     });
@@ -48,10 +47,10 @@ describe("LLM Robustness - Markdown Sanitization", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         // Should still parse the JSON even without closing ```
-        const status = await parser.getStringProperty("status").promise;
+        const status = await parser.get<string>("status");
 
         expect(status).toBe("ok");
     });
@@ -67,9 +66,9 @@ describe("LLM Robustness - Markdown Sanitization", () => {
             chunkSize: 12,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const code = await parser.getStringProperty("code").promise;
+        const code = await parser.get<string>("code");
 
         expect(code).toBe("use `variable` here");
     });
@@ -84,9 +83,9 @@ describe("LLM Robustness - Preamble Handling", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const name = await parser.getStringProperty("name").promise;
+        const name = await parser.get<string>("name");
 
         expect(name).toBe("Bob");
     });
@@ -101,9 +100,9 @@ describe("LLM Robustness - Preamble Handling", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const result = await parser.getNumberProperty("result").promise;
+        const result = await parser.get<number>("result");
 
         expect(result).toBe(42);
     });
@@ -116,9 +115,9 @@ describe("LLM Robustness - Preamble Handling", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const key = await parser.getStringProperty("key").promise;
+        const key = await parser.get<string>("key");
 
         expect(key).toBe("value");
     });
@@ -135,9 +134,9 @@ I hope this helps! The answer is 42 as per your calculations.`;
             chunkSize: 15,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const answer = await parser.getNumberProperty("answer").promise;
+        const answer = await parser.get<number>("answer");
 
         expect(answer).toBe(42);
     });
@@ -150,9 +149,9 @@ I hope this helps! The answer is 42 as per your calculations.`;
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const status = await parser.getStringProperty("status").promise;
+        const status = await parser.get<string>("status");
 
         expect(status).toBe("success");
     });
@@ -167,9 +166,9 @@ describe("LLM Robustness - Special Characters", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const greeting = await parser.getStringProperty("greeting").promise;
+        const greeting = await parser.get<string>("greeting");
 
         expect(greeting).toBe("Hello World!");
     });
@@ -184,9 +183,9 @@ describe("LLM Robustness - Special Characters", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const text = await parser.getStringProperty("text").promise;
+        const text = await parser.get<string>("text");
 
         // Currently returns the escape sequences as-is (not decoded)
         expect(text).toBe("\\u0048\\u0065\\u006c\\u006c\\u006f");
@@ -200,9 +199,9 @@ describe("LLM Robustness - Special Characters", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const text = await parser.getStringProperty("text").promise;
+        const text = await parser.get<string>("text");
 
         expect(text).toBe("Line1\nLine2\nLine3");
     });
@@ -215,9 +214,9 @@ describe("LLM Robustness - Special Characters", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const code = await parser.getStringProperty("code").promise;
+        const code = await parser.get<string>("code");
 
         expect(code).toBe("\t\tindented\r\n");
     });
@@ -230,9 +229,9 @@ describe("LLM Robustness - Special Characters", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const quote = await parser.getStringProperty("quote").promise;
+        const quote = await parser.get<string>("quote");
 
         expect(quote).toBe('She said "Hello"');
     });
@@ -245,9 +244,9 @@ describe("LLM Robustness - Special Characters", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const path = await parser.getStringProperty("path").promise;
+        const path = await parser.get<string>("path");
 
         expect(path).toBe("C:\\Users\\Name");
     });
@@ -262,10 +261,10 @@ describe("LLM Robustness - Number Edge Cases", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const large = await parser.getNumberProperty("large").promise;
-        const small = await parser.getNumberProperty("small").promise;
+        const large = await parser.get<number>("large");
+        const small = await parser.get<number>("small");
 
         expect(large).toBe(1.5e10);
         expect(small).toBe(2.5e-5);
@@ -279,10 +278,10 @@ describe("LLM Robustness - Number Edge Cases", () => {
             chunkSize: 8,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const neg = await parser.getNumberProperty("neg").promise;
-        const negFloat = await parser.getNumberProperty("negFloat").promise;
+        const neg = await parser.get<number>("neg");
+        const negFloat = await parser.get<number>("negFloat");
 
         expect(neg).toBe(-42);
         expect(negFloat).toBe(-3.14);
@@ -296,11 +295,11 @@ describe("LLM Robustness - Number Edge Cases", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const zero = await parser.getNumberProperty("zero").promise;
-        const negZero = await parser.getNumberProperty("negZero").promise;
-        const float = await parser.getNumberProperty("float").promise;
+        const zero = await parser.get<number>("zero");
+        const negZero = await parser.get<number>("negZero");
+        const float = await parser.get<number>("float");
 
         expect(zero).toBe(0);
         expect(Object.is(negZero, -0)).toBe(true);
@@ -317,11 +316,11 @@ describe("LLM Robustness - Complex Structures", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const value = await parser.getStringProperty(
+        const value = await parser.get<string>(
             "a.b.c.d.e.value",
-        ).promise;
+        );
 
         expect(value).toBe("deep");
     });
@@ -334,9 +333,9 @@ describe("LLM Robustness - Complex Structures", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const mixed = await parser.getArrayProperty("mixed").promise;
+        const mixed = await parser.get<any[]>("mixed");
 
         expect(mixed).toEqual([
             1,
@@ -356,11 +355,11 @@ describe("LLM Robustness - Complex Structures", () => {
             chunkSize: 10,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const emptyObj = await parser.getObjectProperty("emptyObj").promise;
-        const emptyArr = await parser.getArrayProperty("emptyArr").promise;
-        const emptyStr = await parser.getStringProperty("emptyStr").promise;
+        const emptyObj = await parser.get<Record<string, any>>("emptyObj");
+        const emptyArr = await parser.get<any[]>("emptyArr");
+        const emptyStr = await parser.get<string>("emptyStr");
 
         expect(emptyObj).toEqual({});
         expect(emptyArr).toEqual([]);
@@ -389,10 +388,10 @@ Let me know if you need any modifications!`;
             chunkSize: 20,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const users = await parser.getArrayProperty("users").promise;
-        const count = await parser.getNumberProperty("count").promise;
+        const users = await parser.get<any[]>("users");
+        const count = await parser.get<number>("count");
 
         expect(users).toEqual([
             { name: "Alice", age: 30 },
@@ -410,15 +409,14 @@ Let me know if you need any modifications!`;
             chunkSize: 15,
             interval: 10,
         });
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
-        const success = await parser.getBooleanProperty("success").promise;
-        const id = await parser.getNumberProperty("data.id").promise;
-        const error = await parser.getNullProperty("error").promise;
+        const success = await parser.get<boolean>("success");
+        const id = await parser.get<number>("data.id");
+        const error = await parser.get<null>("error");
 
         expect(success).toBe(true);
         expect(id).toBe(123);
         expect(error).toBe(null);
     });
 });
-

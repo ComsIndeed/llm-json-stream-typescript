@@ -3,8 +3,7 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 describe("Comprehensive Chunk Size & Speed Matrix", () => {
     const testJson = '{"name":"Alice","age":30,"active":true}';
@@ -24,15 +23,15 @@ describe("Comprehensive Chunk Size & Speed Matrix", () => {
                 interval: speed,
             });
 
-            const parser = new JsonStreamParser(stream);
-            const nameStream = parser.getStringProperty("name");
-            const ageStream = parser.getNumberProperty("age");
-            const activeStream = parser.getBooleanProperty("active");
+            const parser = JsonStream.parse(stream);
+            const nameStream = parser.get<string>("name");
+            const ageStream = parser.get<number>("age");
+            const activeStream = parser.get<boolean>("active");
 
             const [name, age, active] = await Promise.all([
-                nameStream.promise,
-                ageStream.promise,
-                activeStream.promise,
+                nameStream,
+                ageStream,
+                activeStream,
             ]);
 
             expect(name).toBe("Alice");
@@ -53,8 +52,8 @@ describe("Visual Demonstration of Bug Scenario", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const xStream = parser.getStringProperty("x");
+        const parser = JsonStream.parse(stream);
+        const xStream = parser.get<string>("x");
 
         const streamEvents: string[] = [];
         const collectChunks = (async () => {
@@ -63,7 +62,7 @@ describe("Visual Demonstration of Bug Scenario", () => {
             }
         })();
 
-        const result = await xStream.promise;
+        const result = await xStream;
         await collectChunks;
 
         expect(result).toBe("a");
@@ -79,8 +78,8 @@ describe("Visual Demonstration of Bug Scenario", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const titleStream = parser.getStringProperty("title");
+        const parser = JsonStream.parse(stream);
+        const titleStream = parser.get<string>("title");
 
         const chunks: string[] = [];
         const collectChunks = (async () => {
@@ -89,7 +88,7 @@ describe("Visual Demonstration of Bug Scenario", () => {
             }
         })();
 
-        const result = await titleStream.promise;
+        const result = await titleStream;
         await collectChunks;
 
         expect(result).toBe("My Great Blog Post");
@@ -106,8 +105,8 @@ describe("Visual Demonstration of Bug Scenario", () => {
             interval: 20,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const responseStream = parser.getStringProperty("response");
+        const parser = JsonStream.parse(stream);
+        const responseStream = parser.get<string>("response");
 
         const chunks: string[] = [];
         const collectChunks = (async () => {
@@ -116,7 +115,7 @@ describe("Visual Demonstration of Bug Scenario", () => {
             }
         })();
 
-        const result = await responseStream.promise;
+        const result = await responseStream;
         await collectChunks;
 
         expect(result).toBe(
@@ -136,12 +135,12 @@ describe("Complex JSON Structures", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const itemsStream = parser.getArrayProperty(
+        const parser = JsonStream.parse(stream);
+        const itemsStream = parser.get<any[]>(
             "level1.level2.level3.items",
         );
 
-        const result = await itemsStream.promise;
+        const result = await itemsStream;
         expect(result).toEqual([1, 2, 3]);
     });
 
@@ -161,15 +160,15 @@ describe("Complex JSON Structures", () => {
             interval: 5,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         const [str, num, bool, nul, arr, obj] = await Promise.all([
-            parser.getStringProperty("string").promise,
-            parser.getNumberProperty("number").promise,
-            parser.getBooleanProperty("boolean").promise,
-            parser.getNullProperty("null").promise,
-            parser.getArrayProperty("array").promise,
-            parser.getObjectProperty("object").promise,
+            parser.get<string>("string"),
+            parser.get<number>("number"),
+            parser.get<boolean>("boolean"),
+            parser.get<null>("null"),
+            parser.get<any[]>("array"),
+            parser.get<Record<string, any>>("object"),
         ]);
 
         expect(str).toBe("text");
@@ -190,8 +189,8 @@ describe("Complex JSON Structures", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const rootMap = await parser.getObjectProperty("").promise;
+        const parser = JsonStream.parse(stream);
+        const rootMap = await parser.get<Record<string, any>>("");
 
         expect(rootMap).toMatchObject({
             str: "hello",
@@ -203,4 +202,3 @@ describe("Complex JSON Structures", () => {
         });
     });
 });
-

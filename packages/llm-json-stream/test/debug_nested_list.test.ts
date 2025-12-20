@@ -3,8 +3,7 @@
  */
 
 import { describe, expect, test } from "@jest/globals";
-import { JsonStreamParser } from "../src/classes/json_stream_parser.js";
-import { streamTextInChunks } from "../src/utilities/stream_text_in_chunks.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 describe("Debug Nested List Tests", () => {
     test("simple nested array", async () => {
@@ -16,8 +15,8 @@ describe("Debug Nested List Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const list = await parser.getArrayProperty("list").promise;
+        const parser = JsonStream.parse(stream);
+        const list = await parser.get<any[]>("list");
 
         expect(list).toEqual([[1, 2], [3, 4]]);
     });
@@ -31,8 +30,8 @@ describe("Debug Nested List Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const deep = await parser.getArrayProperty("deep").promise;
+        const parser = JsonStream.parse(stream);
+        const deep = await parser.get<any[]>("deep");
 
         expect(deep).toEqual([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
     });
@@ -46,8 +45,8 @@ describe("Debug Nested List Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const data = await parser.getArrayProperty("data").promise;
+        const parser = JsonStream.parse(stream);
+        const data = await parser.get<any[]>("data");
 
         expect(data).toEqual([
             { items: [1, 2] },
@@ -55,7 +54,7 @@ describe("Debug Nested List Tests", () => {
         ]);
     });
 
-    test("onElement callbacks for nested arrays", async () => {
+    test("nested arrays accessible by index", async () => {
         const json = '{"outer":[["a","b"],["c","d"]]}';
 
         const stream = streamTextInChunks({
@@ -64,19 +63,15 @@ describe("Debug Nested List Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const outerStream = parser.getArrayProperty("outer");
+        const parser = JsonStream.parse(stream);
 
-        const innerArrays: string[][] = [];
+        const [arr0, arr1] = await Promise.all([
+            parser.get<string[]>("outer[0]"),
+            parser.get<string[]>("outer[1]"),
+        ]);
 
-        outerStream.onElement(async (elementStream, index) => {
-            const value = await elementStream.promise;
-            innerArrays.push(value as string[]);
-        });
-
-        await outerStream.promise;
-
-        expect(innerArrays).toEqual([["a", "b"], ["c", "d"]]);
+        expect(arr0).toEqual(["a", "b"]);
+        expect(arr1).toEqual(["c", "d"]);
     });
 
     test("accessing elements in nested arrays", async () => {
@@ -88,12 +83,12 @@ describe("Debug Nested List Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         const [row0, row1, row2] = await Promise.all([
-            parser.getArrayProperty("matrix[0]").promise,
-            parser.getArrayProperty("matrix[1]").promise,
-            parser.getArrayProperty("matrix[2]").promise,
+            parser.get<any[]>("matrix[0]"),
+            parser.get<any[]>("matrix[1]"),
+            parser.get<any[]>("matrix[2]"),
         ]);
 
         expect(row0).toEqual([1, 2, 3]);
@@ -111,11 +106,11 @@ describe("Debug Nested List Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
+        const parser = JsonStream.parse(stream);
 
         const [aliceTags, bobTags] = await Promise.all([
-            parser.getArrayProperty("users[0].tags").promise,
-            parser.getArrayProperty("users[1].tags").promise,
+            parser.get<any[]>("users[0].tags"),
+            parser.get<any[]>("users[1].tags"),
         ]);
 
         expect(aliceTags).toEqual(["admin", "user"]);
@@ -131,8 +126,8 @@ describe("Debug Nested List Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const lists = await parser.getArrayProperty("lists").promise;
+        const parser = JsonStream.parse(stream);
+        const lists = await parser.get<any[]>("lists");
 
         expect(lists).toEqual([[], [], []]);
     });
@@ -146,10 +141,9 @@ describe("Debug Nested List Tests", () => {
             interval: 10,
         });
 
-        const parser = new JsonStreamParser(stream);
-        const mixed = await parser.getArrayProperty("mixed").promise;
+        const parser = JsonStream.parse(stream);
+        const mixed = await parser.get<any[]>("mixed");
 
         expect(mixed).toEqual([[1, "two", true], [null, 4.5, false]]);
     });
 });
-
