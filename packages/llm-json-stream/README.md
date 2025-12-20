@@ -76,22 +76,22 @@ npm install llm-json-stream
 ```
 
 ```typescript
-import { JsonStreamParser } from 'llm-json-stream';
+import { JsonStream } from 'llm-json-stream';
 
 // Works with any AsyncIterable<string>
 // Compatible with: Node.js, Deno, Bun, browsers, Cloudflare Workers, etc.
-const parser = new JsonStreamParser(llmResponseStream);
+const stream = JsonStream.parse(llmResponseStream);
 
 // Stream text as it types using async iteration
-for await (const chunk of parser.getStringProperty('message')) {
+for await (const chunk of stream.get<string>('message')) {
   displayText += chunk;  // Update UI character-by-character
 }
 
 // Or get the complete value
-const title = await parser.getStringProperty('title').promise;
+const title = await stream.get<string>('title');
 
 // Clean up when done
-await parser.dispose();
+await stream.dispose();
 ```
 
 ### ✨ Cross-Platform Compatibility
@@ -105,7 +105,7 @@ This library uses **only async iterables** (`AsyncIterable<string>`), making it 
 - ✅ **Cloudflare Workers** - Full support
 - ✅ **Edge runtimes** - Compatible with all edge computing platforms
 
-No Node.js `stream` module required! This avoids the compatibility issues that plague Node.js-specific libraries.
+**No polyfills required!** This library uses standard `AsyncIterable`, which is natively supported everywhere now. Unlike Node.js `stream` libraries that break in the browser, this works seamlessly across all platforms.
 
 ---
 
@@ -116,7 +116,7 @@ No Node.js `stream` module required! This avoids the compatibility issues that p
 Every property gives you both an **async iterator** (incremental updates) and a **promise** (complete value):
 
 ```typescript
-const title = parser.getStringProperty('title');
+const title = stream.get<string>('title');
 
 // Async iterator - each chunk as it arrives
 for await (const chunk of title) {
@@ -124,23 +124,23 @@ for await (const chunk of title) {
 }
 
 // Promise - the final value
-const complete = await title.promise;
+const complete = await title;
 ```
 
 | Use case | API |
 |----------|-----|
 | Typing effect, live updates | `for await...of` |
-| Atomic values (IDs, flags, counts) | `.promise` |
+| Atomic values (IDs, flags, counts) | `await` directly |
 
 ### Path Syntax
 
 Navigate JSON with dot notation and array indices:
 
 ```typescript
-parser.getStringProperty('title')                    // Root property
-parser.getStringProperty('user.name')                // Nested object
-parser.getStringProperty('items[0].title')           // Array element
-parser.getNumberProperty('data.users[2].age')        // Deep nesting
+stream.get<string>('title')                    // Root property
+stream.get<string>('user.name')                // Nested object
+stream.get<string>('items[0].title')           // Array element
+stream.get<number>('data.users[2].age')        // Deep nesting
 ```
 
 ---
@@ -152,7 +152,7 @@ parser.getNumberProperty('data.users[2].age')        // Deep nesting
 Display text as the LLM generates it, creating a smooth typing effect:
 
 ```typescript
-for await (const chunk of parser.getStringProperty('response')) {
+for await (const chunk of stream.get<string>('response')) {
   displayText += chunk;
   updateUI();
 }
@@ -163,18 +163,34 @@ for await (const chunk of parser.getStringProperty('response')) {
 Add items to your UI **the instant parsing begins**—even before their content arrives:
 
 ```typescript
-const listStream = parser.getArrayProperty('articles');
+const articles = stream.get<Article[]>('articles');
 
-listStream.onElement(async (article, index) => {
-  // Fires IMMEDIATELY when "[{" is detected
-  addArticlePlaceholder(index);
+for await (const article of articles) {
+  // Each iteration emits a snapshot of the array as it grows
+  console.log(`Current array length: ${article.length}`);
   
-  // Fill in content as it streams (cast to access nested properties)
-  const mapStream = article as ObjectPropertyStream;
-  for await (const chunk of mapStream.getStringProperty('title')) {
-    updateArticleTitle(index, chunk);
+  // Access the latest article
+  const latest = article[article.length - 1];
+  if (latest) {
+    // Stream the title as it arrives
+    for await (const chunk of latest.get<string>('title')) {
+      updateArticleTitle(article.length - 1, chunk);
+    }
   }
-});
+}
+```
+
+**Or use the path-based API for cleaner code:**
+
+```typescript
+const articles = stream.paths().articles;
+
+for await (const articleList of articles) {
+  for (let i = 0; i < articleList.length; i++) {
+    const title = await articleList[i].title;
+    console.log(`Article ${i}: ${title}`);
+  }
+}
 ```
 
 **Traditional parsers** wait for complete objects → jarring UI jumps.  
@@ -182,35 +198,53 @@ listStream.onElement(async (article, index) => {
 
 ### 🗺️ Reactive Maps
 
-Maps support an `onProperty` callback that fires when each property starts parsing:
+Maps stream their properties as they're discovered. You can iterate over snapshots to see the object build up:
 
 ```typescript
-const mapStream = parser.getObjectProperty('user');
+const user = stream.get<User>('user');
 
-mapStream.onProperty((property, key) => {
-  // Fires IMMEDIATELY when a property key is discovered
-  console.log(`Property "${key}" started parsing`);
-  
-  // Subscribe to the property value as it streams
-  if (property instanceof StringPropertyStream) {
-    (async () => {
-      for await (const chunk of property) {
-        userFields[key] = (userFields[key] || '') + chunk;
-      }
-    })();
-  }
-});
+// Stream snapshots as properties arrive
+for await (const snapshot of user) {
+  console.log('Current user state:', snapshot);
+  // First: {}
+  // Then: { name: "Alice" }
+  // Then: { name: "Alice", age: 30 }
+  // Finally: { name: "Alice", age: 30, email: "alice@example.com" }
+}
+
+// Or use the path-based API for direct access
+const userPaths = stream.paths().user;
+const name = await userPaths.name;
+const age = await userPaths.age;
 ```
 
 ### 🎯 All JSON Types
 
 ```typescript
-parser.getStringProperty('name')      // String → streams chunks
-parser.getNumberProperty('age')       // Number → int or double
-parser.getBooleanProperty('active')   // Boolean  
-parser.getNullProperty('deleted')     // Null
-parser.getObjectProperty('config')       // Object → Record<string, any>
-parser.getArrayProperty('tags')        // Array → any[]
+stream.get<string>('name')      // String → streams chunks
+stream.get<number>('age')       // Number → int or double
+stream.get<boolean>('active')   // Boolean  
+stream.get<null>('deleted')     // Null
+stream.get<object>('config')    // Object → Record<string, any>
+stream.get<any[]>('tags')       // Array → any[]
+```
+
+**Or use the type-safe path API:**
+
+```typescript
+interface User {
+  name: string;
+  age: number;
+  active: boolean;
+}
+
+const stream = JsonStream.parse<User>(response);
+const paths = stream.paths();
+
+// Full TypeScript autocomplete!
+const name: string = await paths.name;
+const age: number = await paths.age;
+const active: boolean = await paths.active;
 ```
 
 ### ⛓️ Flexible API
@@ -218,31 +252,43 @@ parser.getArrayProperty('tags')        // Array → any[]
 Navigate complex structures with chained access:
 
 ```typescript
-// Chain getters together
-const user = parser.getObjectProperty('user');
-const name = await user.getStringProperty('name').promise;
-const email = await user.getStringProperty('email').promise;
+// Use .get() with paths
+const name = await stream.get<string>('user.name');
+const email = await stream.get<string>('user.email');
+const city = await stream.get<string>('user.address.city');
 
-// Or go deep in one line
-const city = await parser.getStringProperty('user.address.city').promise;
+// Or use the ergonomic .paths() API
+const paths = stream.paths();
+const name2 = await paths.user.name;
+const email2 = await paths.user.email;
+const city2 = await paths.user.address.city;
 ```
 
-### 🎭 Smart Casts
+### 🎭 Type Safety with Schemas
 
-Handle dynamic list elements with type casts:
+Define your schema once and get full TypeScript support:
 
 ```typescript
-parser.getArrayProperty('items').onElement(async (element, index) => {
-  // Cast to appropriate type to access type-specific methods
-  const mapElement = element as ObjectPropertyStream;
-  
-  for await (const chunk of mapElement.getStringProperty('title')) {
-    updateTitle(index, chunk);
+interface Item {
+  title: string;
+  price: number;
+}
+
+interface Response {
+  items: Item[];
+}
+
+const stream = JsonStream.parse<Response>(llmResponse);
+const paths = stream.paths();
+
+// TypeScript knows the types!
+for await (const items of paths.items) {
+  for (const item of items) {
+    const title: string = await item.title;  // Inferred as string
+    const price: number = await item.price;  // Inferred as number
+    updateUI(title, price);
   }
-  
-  const price = await mapElement.getNumberProperty('price').promise;
-  updatePrice(index, price);
-});
+}
 ```
 
 ### 🔄 Buffered vs Unbuffered Streams
@@ -250,7 +296,7 @@ parser.getArrayProperty('items').onElement(async (element, index) => {
 Property streams offer two modes to handle different subscription timing scenarios:
 
 ```typescript
-const items = parser.getArrayProperty('items');
+const items = stream.get<Item[]>('items');
 
 // Recommended: Buffered iteration (replays values to new subscribers)
 for await (const snapshot of items) {
@@ -277,7 +323,7 @@ for await (const snapshot of items.unbuffered()) {
 Some LLMs "yap" after the JSON—adding explanatory text that can confuse downstream processing. The `closeOnRootComplete` option stops parsing the moment the root JSON object/array is complete:
 
 ```typescript
-const parser = new JsonStreamParser(llmStream, {
+const stream = JsonStream.parse(llmStream, {
   closeOnRootComplete: true  // Stop after root JSON completes (default: true)
 });
 
@@ -297,42 +343,57 @@ This is especially useful when:
 A realistic scenario: parsing a blog post with streaming title and reactive sections.
 
 ```typescript
-import { JsonStreamParser, StringPropertyStream, ObjectPropertyStream } from 'llm_json_stream';
+import { JsonStream } from 'llm_json_stream';
+
+interface Section {
+  heading: string;
+  body: string;
+}
+
+interface BlogPost {
+  title: string;
+  sections: Section[];
+}
 
 async function main() {
   // Your LLM stream (OpenAI, Claude, Gemini, etc.)
-  const stream = await llm.streamChat("Generate a blog post as JSON");
+  const llmStream = await llm.streamChat("Generate a blog post as JSON");
   
-  const parser = new JsonStreamParser(stream);
+  const stream = JsonStream.parse<BlogPost>(llmStream);
+  const blog = stream.paths();
   
   // Title streams character-by-character
   (async () => {
-    for await (const chunk of parser.getStringProperty('title')) {
+    for await (const chunk of blog.title) {
       process.stdout.write(chunk);  // "H" "e" "l" "l" "o" " " "W" "o" "r" "l" "d"
     }
     console.log();
   })();
   
-  // Sections appear the moment they start
-  parser.getArrayProperty('sections').onElement(async (section, index) => {
-    console.log(`Section ${index} detected!`);
-    
-    const sectionMap = section as ObjectPropertyStream;
-    
-    for await (const chunk of sectionMap.getStringProperty('heading')) {
-      console.log(`  Heading chunk: ${chunk}`);
+  // Sections appear as they stream
+  (async () => {
+    for await (const sections of blog.sections) {
+      console.log(`Got ${sections.length} sections so far`);
+      
+      // Process the latest section
+      const latest = sections[sections.length - 1];
+      if (latest) {
+        for await (const chunk of latest.heading) {
+          console.log(`  Heading chunk: ${chunk}`);
+        }
+        
+        for await (const chunk of latest.body) {
+          console.log(`  Body chunk: ${chunk}`);
+        }
+      }
     }
-    
-    for await (const chunk of sectionMap.getStringProperty('body')) {
-      console.log(`  Body chunk: ${chunk}`);
-    }
-  });
+  })();
   
   // Wait for completion
-  const allSections = await parser.getArrayProperty('sections').promise;
+  const allSections = await blog.sections;
   console.log(`Done! Got ${allSections.length} sections`);
   
-  await parser.dispose();
+  await stream.dispose();
 }
 ```
 
@@ -340,58 +401,99 @@ async function main() {
 
 ## API Reference
 
-### Property Methods
-
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `.getStringProperty(path)` | `StringPropertyStream` | Streams string chunks |
-| `.getNumberProperty(path)` | `NumberPropertyStream` | Complete number value |
-| `.getBooleanProperty(path)` | `BooleanPropertyStream` | Boolean value |
-| `.getNullProperty(path)` | `NullPropertyStream` | Null value |
-| `.getObjectProperty(path)` | `ObjectPropertyStream` | Object with nested access |
-| `.getArrayProperty(path)` | `ArrayPropertyStream` | Array with element callbacks |
-
-### PropertyStream Interface
+### Creating a Stream
 
 ```typescript
-// All property streams implement AsyncIterable
-for await (const value of propertyStream) { ... }     // Buffered iteration
-for await (const value of propertyStream.unbuffered()) { ... }  // Unbuffered
+// Without schema (dynamic)
+const stream = JsonStream.parse(asyncIterableStream);
 
-// Promise for complete value
-const complete = await propertyStream.promise;
-```
+// With schema (typed)
+interface MySchema {
+  name: string;
+  age: number;
+}
+const stream = JsonStream.parse<MySchema>(asyncIterableStream);
 
-### ArrayPropertyStream
-
-```typescript
-listStream.onElement((element, index) => {
-  // Callback when element parsing starts
+// With options
+const stream = JsonStream.parse(asyncIterableStream, {
+  closeOnRootComplete: true  // Stop after root JSON completes
 });
 ```
 
-### ObjectPropertyStream
+### Accessing Properties
+
+#### Manual Access with `.get<T>(path)`
 
 ```typescript
-mapStream.onProperty((property, key) => {
-  // Callback when property parsing starts
-});
+// Returns AsyncJson<T> - both a Promise and AsyncIterable
+const name = stream.get<string>('user.name');
+
+// Use as a promise
+const nameValue: string = await name;
+
+// Use as an async iterable
+for await (const chunk of name) {
+  console.log(chunk);
+}
+
+// Access nested properties
+const email = stream.get<string>('user.contact.email');
+const age = stream.get<number>('users[0].age');
 ```
+
+#### Path-based Access with `.paths()`
+
+```typescript
+// Get the typed proxy object
+const paths = stream.paths();
+
+// Direct property access with TypeScript autocomplete
+const name: string = await paths.user.name;
+
+// Stream chunks
+for await (const chunk of paths.user.bio) {
+  console.log(chunk);
+}
+
+// Array access
+const firstUser = paths.users[0];
+const email = await firstUser.email;
+
+// Chained access
+const city = await paths.user.address.city;
+```
+
+### AsyncJson Interface
+
+Both `.get<T>()` and `.paths()` return `AsyncJson<T>` values:
+
+```typescript
+// AsyncJson<T> is both a Promise and an AsyncIterable
+interface AsyncJson<T> extends Promise<T>, AsyncIterable<T> {
+  get<U>(path: string): AsyncJson<U>;  // Nested access
+  unbuffered(): AsyncIterable<T>;       // Live-only iteration
+}
+```
+
+### Supported Types
+
+All JSON types are supported:
+
+| Type | Example |
+|------|---------|
+| String | `stream.get<string>('name')` |
+| Number | `stream.get<number>('age')` |
+| Boolean | `stream.get<boolean>('active')` |
+| Null | `stream.get<null>('deleted')` |
+| Object | `stream.get<User>('user')` |
+| Array | `stream.get<User[]>('users')` |
 
 ### Cleanup
 
-Always dispose the parser when you're done:
+Always dispose the stream when you're done:
 
 ```typescript
-await parser.dispose();
-```
-
-### Constructor Options
-
-```typescript
-new JsonStreamParser(stream: Readable, {
-  closeOnRootComplete?: boolean  // Stop parsing after root JSON completes (default: true)
-});
+await stream.dispose();
 ```
 
 ---
@@ -420,7 +522,7 @@ Battle-tested with comprehensive test coverage. Handles real-world edge cases:
 
 ```typescript
 import OpenAI from 'openai';
-import { JsonStreamParser } from 'llm_json_stream';
+import { JsonStream } from 'llm_json_stream';
 
 const openai = new OpenAI();
 
@@ -438,7 +540,7 @@ async function* openaiStream() {
   }
 }
 
-const parser = new JsonStreamParser(openaiStream());
+const stream = JsonStream.parse(openaiStream());
 ```
 
 </details>
@@ -448,7 +550,7 @@ const parser = new JsonStreamParser(openaiStream());
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import { JsonStreamParser } from 'llm_json_stream';
+import { JsonStream } from 'llm_json_stream';
 
 const anthropic = new Anthropic();
 
@@ -467,7 +569,7 @@ async function* claudeStream() {
   }
 }
 
-const parser = new JsonStreamParser(claudeStream());
+const jsonStream = JsonStream.parse(claudeStream());
 ```
 
 </details>
@@ -477,7 +579,7 @@ const parser = new JsonStreamParser(claudeStream());
 
 ```typescript
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { JsonStreamParser } from 'llm_json_stream';
+import { JsonStream } from 'llm_json_stream';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
@@ -492,7 +594,7 @@ async function* geminiStream() {
   }
 }
 
-const parser = new JsonStreamParser(geminiStream());
+const stream = JsonStream.parse(geminiStream());
 ```
 
 </details>
@@ -506,16 +608,13 @@ This package implements a **character-by-character JSON state machine** with a r
 ### Core Components
 
 #### 1. **Parser Core**
-- `JsonStreamParser` - Main parser class that consumes input streams
-- `JsonStreamParserController` - Internal coordinator for parsing operations
+- `JsonStream` - Main class with `.parse()` static method
+- `JsonStreamController` - Internal coordinator for parsing operations
 
-#### 2. **Property Streams** (Public API)
-- `StringPropertyStream` - Streams string content chunk-by-chunk
-- `NumberPropertyStream` - Emits complete number values
-- `BooleanPropertyStream` - Emits boolean values
-- `NullPropertyStream` - Emits null values
-- `ObjectPropertyStream` - Provides access to object properties
-- `ArrayPropertyStream` - Provides reactive array handling with `onElement` callbacks
+#### 2. **Unified Property API**
+- `AsyncJson<T>` - Unified interface that is both Promise and AsyncIterable
+- `.get<T>(path)` - Manual string-based property access
+- `.paths()` - Proxy-based ergonomic property access with TypeScript autocomplete
 
 #### 3. **Property Delegates** (Internal State Machine)
 Delegates handle character-by-character parsing for each JSON type:
@@ -523,14 +622,15 @@ Delegates handle character-by-character parsing for each JSON type:
 - `NumberPropertyDelegate` - Handles number parsing
 - `BooleanPropertyDelegate` - Handles true/false
 - `NullPropertyDelegate` - Handles null
-- `MapPropertyDelegate` - Handles object parsing
-- `ListPropertyDelegate` - Handles array parsing
+- `ObjectPropertyDelegate` - Handles object parsing
+- `ArrayPropertyDelegate` - Handles array parsing
 
 ### Design Patterns
 
 - **State Machine**: Character-by-character parsing with delegates
 - **Async Iterators**: Modern streaming via `for await...of`
-- **Promise-based Futures**: Async access to complete values
+- **Thenable Interface**: Direct `await` support without `.promise`
+- **Proxy Pattern**: Ergonomic property access via `.paths()`
 - **Factory Pattern**: Delegate creation based on first character
 - **Controller Pattern**: Separation of public API from internal logic
 
@@ -539,18 +639,18 @@ Delegates handle character-by-character parsing for each JSON type:
 ```
 src/
 ├── classes/
-│   ├── json_stream_parser.ts           # Main parser
-│   ├── property_stream.ts              # Public API property streams
+│   ├── json_stream.ts                  # Main JsonStream class with .parse()
+│   ├── property_stream.ts              # AsyncJson implementation
 │   ├── property_stream_controller.ts   # Internal controllers
-│   ├── mixins.ts                       # Factory functions
+│   ├── mixins.ts                       # Factory functions & helpers
 │   └── property_delegates/             # State machine workers
 │       ├── property_delegate.ts
 │       ├── string_property_delegate.ts
 │       ├── number_property_delegate.ts
 │       ├── boolean_property_delegate.ts
 │       ├── null_property_delegate.ts
-│       ├── map_property_delegate.ts
-│       └── list_property_delegate.ts
+│       ├── object_property_delegate.ts
+│       └── array_property_delegate.ts
 ├── utilities/
 │   └── stream_text_in_chunks.ts        # Test utility
 └── index.ts                             # Public exports

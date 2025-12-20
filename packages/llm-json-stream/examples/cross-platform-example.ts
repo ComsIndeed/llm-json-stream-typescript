@@ -73,4 +73,3 @@ async function demonstrateCrossPlatform() {
 
 // Run the example
 demonstrateCrossPlatform().catch(console.error);
-
