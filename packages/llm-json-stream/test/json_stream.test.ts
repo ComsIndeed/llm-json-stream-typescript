@@ -743,8 +743,18 @@ describe("Streaming Behavior", () => {
 
         await withTimeout(
             (async () => {
-                for await (const snapshot of jsonStream.get<object>("user")) {
-                    snapshots.push({ ...snapshot });
+                // Object iteration now yields [key, AsyncJson<V>] tuples
+                for await (
+                    const [key, valueAsync] of jsonStream.get<
+                        Record<string, any>
+                    >("user")
+                ) {
+                    const value = await valueAsync;
+                    const currentSnapshot = snapshots.length > 0
+                        ? { ...snapshots[snapshots.length - 1] }
+                        : {};
+                    (currentSnapshot as any)[key] = value;
+                    snapshots.push(currentSnapshot);
                 }
             })(),
             2000,

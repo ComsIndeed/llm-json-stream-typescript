@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { JsonStreamParser } from "../../../../../packages/llm-json-stream/dist";
+import { JsonStream } from "../../../../../packages/llm-json-stream/dist";
 import { listenTo } from "../../utils/listenTo";
 import { cardStyle } from "./MainDemo";
 import { FeaturePill } from "./FeaturePill";
@@ -29,8 +29,8 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
             return;
         }
 
-        // 1. INSTANTIATE INSIDE USEEFFECT
-        const parser = new JsonStreamParser(props.parserStream);
+        // 1. INSTANTIATE INSIDE USEEFFECT - using new JsonStream.parse() API
+        const stream = JsonStream.parse(props.parserStream);
 
         // Reset values on new stream.
         setTitle("");
@@ -41,40 +41,45 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
         setFeatureItems([]);
 
         // 2. REGISTER LISTENERS IMMEDIATELY (Synchronously after creation)
-        void listenTo(parser.getStringProperty("title"), (value) => {
+        void listenTo(stream.get<string>("title"), (value) => {
             setTitle((prev) => prev + value);
         }, { signal: props.abortController?.signal });
 
-        void listenTo(parser.getStringProperty("author"), (value) => {
+        void listenTo(stream.get<string>("author"), (value) => {
             setAuthor((prev) => prev + value);
         }, { signal: props.abortController?.signal });
 
-        void listenTo(parser.getStringProperty("description"), (value) => {
+        void listenTo(stream.get<string>("description"), (value) => {
             setDescription((prev) => prev + value);
         }, { signal: props.abortController?.signal });
 
-        void listenTo(parser.getStringProperty("image.url"), (value) => {
+        void listenTo(stream.get<string>("image.url"), (value) => {
             setImageUrl((prev) => prev + value);
         }, { signal: props.abortController?.signal });
 
-        void listenTo(parser.getStringProperty("image.generated_with"), (value) => {
+        void listenTo(stream.get<string>("image.generated_with"), (value) => {
             setImageGeneratedWith((prev) => prev + value);
         }, { signal: props.abortController?.signal });
 
-        parser.getArrayProperty("features").onElement((elementStream, index) => {
-            setFeatureItems((prev) => {
-                if (prev.some((p) => p.index === index)) return prev;
-                return [...prev, { index, stream: elementStream }].sort(
-                    (a, b) => a.index - b.index,
-                );
-            });
-        });
+        // Handle array of features - iterate over each element
+        (async () => {
+            let index = 0;
+            for await (const featureAsync of stream.get<string[]>("features")) {
+                const currentIndex = index++;
+                setFeatureItems((prev) => {
+                    if (prev.some((p) => p.index === currentIndex)) return prev;
+                    return [...prev, { index: currentIndex, stream: featureAsync }].sort(
+                        (a, b) => a.index - b.index,
+                    );
+                });
+            }
+        })();
 
         // 3. CLEANUP
         return () => {
-            parser.dispose();
+            stream.dispose();
         };
-    }, [props.parserStream, props.abortController]); // Remove 'parser' dependency
+    }, [props.parserStream, props.abortController]);
 
     const displayTitle = title || " ";
 

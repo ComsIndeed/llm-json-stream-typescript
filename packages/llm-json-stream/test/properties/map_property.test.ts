@@ -149,9 +149,15 @@ describe("Map Property Tests", () => {
         const rootStream = parser.get<Record<string, any>>("");
 
         // Collect all snapshots using async iterator
+        // Object iteration now yields [key, AsyncJson<V>] tuples
         const snapshots: Record<string, any>[] = [];
-        for await (const snapshot of rootStream) {
-            snapshots.push({ ...snapshot }); // Copy to preserve state
+        for await (const [key, valueAsync] of rootStream) {
+            const value = await valueAsync;
+            const currentSnapshot = snapshots.length > 0
+                ? { ...snapshots[snapshots.length - 1] }
+                : {};
+            currentSnapshot[key] = value;
+            snapshots.push(currentSnapshot);
         }
 
         // Should have received incremental snapshots

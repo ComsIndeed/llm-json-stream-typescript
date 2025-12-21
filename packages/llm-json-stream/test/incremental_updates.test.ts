@@ -50,8 +50,14 @@ describe("Incremental Updates", () => {
         const mapStream = parser.get<Record<string, any>>("");
         const emittedMaps: Record<string, any>[] = [];
 
-        for await (const snapshot of mapStream) {
-            emittedMaps.push({ ...snapshot });
+        // Object iteration now yields [key, AsyncJson<V>] tuples
+        for await (const [key, valueAsync] of mapStream) {
+            const value = await valueAsync;
+            const currentSnapshot = emittedMaps.length > 0
+                ? { ...emittedMaps[emittedMaps.length - 1] }
+                : {};
+            currentSnapshot[key] = value;
+            emittedMaps.push(currentSnapshot);
         }
 
         // Should emit at least one snapshot

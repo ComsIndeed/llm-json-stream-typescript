@@ -5,7 +5,7 @@
  * because it uses only AsyncIterable<string> - no Node.js stream module required!
  */
 
-import { JsonStreamParser, streamTextInChunks } from "../src/index.js";
+import { JsonStream, streamTextInChunks } from "../src/index.js";
 
 // Example: Simulating an LLM response
 const jsonResponse = JSON.stringify({
@@ -31,36 +31,34 @@ async function demonstrateCrossPlatform() {
         interval: 50,
     });
 
-    // Create the parser - accepts ANY AsyncIterable<string>
-    const parser = new JsonStreamParser(stream);
+    // Create the parser using the new JsonStream.parse() API
+    const jsonStream = JsonStream.parse(stream);
 
     // Stream the title as it arrives (character by character)
     console.log("📝 Title (streaming):");
     process.stdout.write("   ");
-    for await (const chunk of parser.getStringProperty("title")) {
+    for await (const chunk of jsonStream.get<string>("title")) {
         process.stdout.write(chunk);
     }
     console.log("\n");
 
     // Get complete values
-    const author = await parser.getStringProperty("author").promise;
+    const author = await jsonStream.get<string>("author");
     console.log(`👤 Author: ${author}\n`);
 
     // Stream array elements as they arrive
     console.log("🏷️  Tags:");
-    const tagsStream = parser.getArrayProperty("tags");
-    tagsStream.onElement(async (element, index) => {
-        const tag = await (element as any).promise;
+    const tags = await jsonStream.get<string[]>("tags");
+    tags.forEach((tag, index) => {
         console.log(`   [${index}] ${tag}`);
     });
 
     // Access nested properties
-    const readTime = await parser.getNumberProperty("metadata.readTime")
-        .promise;
+    const readTime = await jsonStream.get<number>("metadata.readTime");
     console.log(`\n⏱️  Read time: ${readTime} minutes\n`);
 
     // Wait for stream to complete
-    await parser.dispose();
+    await jsonStream.dispose();
 
     console.log("✅ Done! This example works on:");
     console.log("   • Node.js (all versions with async iterators)");

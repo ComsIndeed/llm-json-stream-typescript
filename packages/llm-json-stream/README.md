@@ -160,22 +160,20 @@ for await (const chunk of stream.get<string>('response')) {
 
 ### 📋 Reactive Lists
 
-Add items to your UI **the instant parsing begins**—even before their content arrives:
+Add items to your UI **as each element begins parsing**:
 
 ```typescript
 const articles = stream.get<Article[]>('articles');
 
-for await (const article of articles) {
-  // Each iteration emits a snapshot of the array as it grows
-  console.log(`Current array length: ${article.length}`);
+// Iteration yields AsyncJson<Article> for each element as it's discovered
+for await (const articleAsync of articles) {
+  // articleAsync is an AsyncJson<Article> - you can await it or stream it
+  const article = await articleAsync;
+  console.log(`Got article: ${article.title}`);
   
-  // Access the latest article
-  const latest = article[article.length - 1];
-  if (latest) {
-    // Stream the title as it arrives
-    for await (const chunk of latest.get<string>('title')) {
-      updateArticleTitle(article.length - 1, chunk);
-    }
+  // Or stream the title as it arrives
+  for await (const chunk of articleAsync.get<string>('title')) {
+    displayArticleTitle(chunk);
   }
 }
 ```
@@ -183,33 +181,31 @@ for await (const article of articles) {
 **Or use the path-based API for cleaner code:**
 
 ```typescript
-const articles = stream.paths().articles;
+const paths = stream.paths();
 
-for await (const articleList of articles) {
-  for (let i = 0; i < articleList.length; i++) {
-    const title = await articleList[i].title;
-    console.log(`Article ${i}: ${title}`);
-  }
+// Iteration yields AsyncJson proxy for each element
+for await (const article of paths.articles) {
+  // Access properties on each article as they stream
+  const title = await article.title;
+  console.log(`Article title: ${title}`);
 }
 ```
 
 **Traditional parsers** wait for complete objects → jarring UI jumps.  
-**This approach** → smooth loading states that populate progressively.
+**This approach** → each item appears instantly and streams its content smoothly.
 
 ### 🗺️ Reactive Maps
 
-Maps stream their properties as they're discovered. You can iterate over snapshots to see the object build up:
+Maps stream their properties as they're discovered. You can iterate over key-value pairs to see properties appear:
 
 ```typescript
 const user = stream.get<User>('user');
 
-// Stream snapshots as properties arrive
-for await (const snapshot of user) {
-  console.log('Current user state:', snapshot);
-  // First: {}
-  // Then: { name: "Alice" }
-  // Then: { name: "Alice", age: 30 }
-  // Finally: { name: "Alice", age: 30, email: "alice@example.com" }
+// Iterate over [key, AsyncJson<V>] tuples as properties arrive
+for await (const [key, value] of user) {
+  console.log(`Property ${key} discovered`);
+  const propertyValue = await value;
+  console.log(`${key}: ${propertyValue}`);
 }
 
 // Or use the path-based API for direct access
@@ -343,7 +339,7 @@ This is especially useful when:
 A realistic scenario: parsing a blog post with streaming title and reactive sections.
 
 ```typescript
-import { JsonStream } from 'llm_json_stream';
+import { JsonStream } from 'llm-json-stream';
 
 interface Section {
   heading: string;
@@ -370,22 +366,23 @@ async function main() {
     console.log();
   })();
   
-  // Sections appear as they stream
+  // Sections appear as they stream - each iteration yields a section AsyncJson
   (async () => {
-    for await (const sections of blog.sections) {
-      console.log(`Got ${sections.length} sections so far`);
+    let sectionIndex = 0;
+    for await (const section of blog.sections) {
+      console.log(`Processing section ${sectionIndex}`);
       
-      // Process the latest section
-      const latest = sections[sections.length - 1];
-      if (latest) {
-        for await (const chunk of latest.heading) {
-          console.log(`  Heading chunk: ${chunk}`);
-        }
-        
-        for await (const chunk of latest.body) {
-          console.log(`  Body chunk: ${chunk}`);
-        }
+      // Stream the heading as it arrives
+      for await (const chunk of section.heading) {
+        console.log(`  Heading chunk: ${chunk}`);
       }
+      
+      // Stream the body as it arrives
+      for await (const chunk of section.body) {
+        console.log(`  Body chunk: ${chunk}`);
+      }
+      
+      sectionIndex++;
     }
   })();
   
@@ -461,6 +458,10 @@ const email = await firstUser.email;
 
 // Chained access
 const city = await paths.user.address.city;
+
+// Convert path proxy to AsyncJson for full API access
+const userAsyncJson = paths.user.asyncJson();
+// or use the $ prefix: paths.user.$asAsyncJson()
 ```
 
 ### AsyncJson Interface
@@ -469,11 +470,19 @@ Both `.get<T>()` and `.paths()` return `AsyncJson<T>` values:
 
 ```typescript
 // AsyncJson<T> is both a Promise and an AsyncIterable
-interface AsyncJson<T> extends Promise<T>, AsyncIterable<T> {
+// - For arrays (T = E[]), iteration yields AsyncJson<E> for each element
+// - For objects (T = {k: V}), iteration yields [key, AsyncJson<V>] tuples
+// - For primitives, iteration yields the value itself (e.g., string chunks)
+interface AsyncJson<T> extends Promise<T>, AsyncIterable<...> {
   get<U>(path: string): AsyncJson<U>;  // Nested access
-  unbuffered(): AsyncIterable<T>;       // Live-only iteration
+  unbuffered(): AsyncIterable<...>;     // Live-only iteration
 }
 ```
+
+**Important**: 
+- **Arrays**: iteration yields `AsyncJson<E>` for individual elements, NOT array snapshots
+- **Objects**: iteration yields `[key, AsyncJson<V>]` tuples as properties are discovered
+- **Primitives**: iteration yields chunks (e.g., string chunks as they stream)
 
 ### Supported Types
 
@@ -522,7 +531,7 @@ Battle-tested with comprehensive test coverage. Handles real-world edge cases:
 
 ```typescript
 import OpenAI from 'openai';
-import { JsonStream } from 'llm_json_stream';
+import { JsonStream } from 'llm-json-stream';
 
 const openai = new OpenAI();
 
@@ -550,7 +559,7 @@ const stream = JsonStream.parse(openaiStream());
 
 ```typescript
 import Anthropic from '@anthropic-ai/sdk';
-import { JsonStream } from 'llm_json_stream';
+import { JsonStream } from 'llm-json-stream';
 
 const anthropic = new Anthropic();
 
@@ -579,7 +588,7 @@ const jsonStream = JsonStream.parse(claudeStream());
 
 ```typescript
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { JsonStream } from 'llm_json_stream';
+import { JsonStream } from 'llm-json-stream';
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
@@ -609,7 +618,8 @@ This package implements a **character-by-character JSON state machine** with a r
 
 #### 1. **Parser Core**
 - `JsonStream` - Main class with `.parse()` static method
-- `JsonStreamController` - Internal coordinator for parsing operations
+- `JsonStreamParser` - Internal parser implementation
+- `JsonStreamParserController` - Internal coordinator for parsing operations
 
 #### 2. **Unified Property API**
 - `AsyncJson<T>` - Unified interface that is both Promise and AsyncIterable

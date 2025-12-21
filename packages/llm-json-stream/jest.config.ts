@@ -19,6 +19,7 @@ module.exports = {
     testTimeout: 3000, // 3 second timeout per individual test
     // Force Jest to exit after tests complete or fail
     forceExit: true,
-    // Use single worker to prevent parallel hangs
-    maxWorkers: 1,
+    // Allow parallel test execution for better performance
+    // Tests are isolated and can run concurrently
+    maxWorkers: "50%",
 };
