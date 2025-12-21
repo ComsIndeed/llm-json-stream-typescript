@@ -369,11 +369,20 @@ export class StringPropertyStream extends PropertyStream<string> {
 /**
  * A property stream for JSON object values.
  * Provides onProperty callback for reacting to properties as they start parsing.
+ *
+ * IMPORTANT: Property notifications are buffered so that late subscribers
+ * can replay all previously notified properties. This ensures no properties
+ * are missed when iterating, regardless of timing.
  */
 export class ObjectPropertyStream extends PropertyStream<Record<string, any>> {
     private propertyPath: string;
     private _onPropertyCallbacks: Array<
         (property: PropertyStream<any>, key: string) => void
+    > = [];
+
+    /** Buffer of all property notifications for late subscribers */
+    private _propertyBuffer: Array<
+        { property: PropertyStream<any>; key: string }
     > = [];
 
     constructor(
@@ -391,6 +400,10 @@ export class ObjectPropertyStream extends PropertyStream<Record<string, any>> {
      * Registers a callback that fires when each property in the object starts parsing.
      * The callback receives the property stream for the value and the property key.
      *
+     * IMPORTANT: Late subscribers will receive notifications for ALL previously
+     * discovered properties immediately upon registration, then receive new
+     * properties as they are discovered.
+     *
      * @example
      * ```typescript
      * const objectStream = parser.getObjectProperty('user');
@@ -407,13 +420,23 @@ export class ObjectPropertyStream extends PropertyStream<Record<string, any>> {
     onProperty(
         callback: (property: PropertyStream<any>, key: string) => void,
     ): void {
+        // First, replay all buffered property notifications to this callback
+        for (const { property, key } of this._propertyBuffer) {
+            callback(property, key);
+        }
+        // Then add the callback for future notifications
         this._onPropertyCallbacks.push(callback);
     }
 
     /**
      * Internal method to notify callbacks about a new property.
+     * Also buffers the notification for late subscribers.
      */
     _notifyProperty(property: PropertyStream<any>, key: string): void {
+        // Buffer this notification for late subscribers
+        this._propertyBuffer.push({ property, key });
+
+        // Notify all currently registered callbacks
         for (const callback of this._onPropertyCallbacks) {
             callback(property, key);
         }
@@ -423,11 +446,20 @@ export class ObjectPropertyStream extends PropertyStream<Record<string, any>> {
 /**
  * A property stream for JSON array values.
  * Provides onElement callback for reacting to elements as they start parsing.
+ *
+ * IMPORTANT: Element notifications are buffered so that late subscribers
+ * can replay all previously notified elements. This ensures no elements
+ * are missed when iterating, regardless of timing.
  */
 export class ArrayPropertyStream<T = any> extends PropertyStream<T[]> {
     private propertyPath: string;
     private _onElementCallbacks: Array<
         (propertyStream: PropertyStream<any>, index: number) => void
+    > = [];
+
+    /** Buffer of all element notifications for late subscribers */
+    private _elementBuffer: Array<
+        { propertyStream: PropertyStream<any>; index: number }
     > = [];
 
     constructor(
@@ -443,7 +475,11 @@ export class ArrayPropertyStream<T = any> extends PropertyStream<T[]> {
 
     /**
      * Registers a callback that fires when each array element starts parsing.
-     * The callback receives the property stream for the new element and its index.
+     * The callback receives the property stream for the value and the property key.
+     *
+     * IMPORTANT: Late subscribers will receive notifications for ALL previously
+     * discovered elements immediately upon registration, then receive new
+     * elements as they are discovered.
      *
      * @example
      * ```typescript
@@ -459,13 +495,23 @@ export class ArrayPropertyStream<T = any> extends PropertyStream<T[]> {
     onElement(
         callback: (propertyStream: PropertyStream<any>, index: number) => void,
     ): void {
+        // First, replay all buffered element notifications to this callback
+        for (const { propertyStream, index } of this._elementBuffer) {
+            callback(propertyStream, index);
+        }
+        // Then add the callback for future notifications
         this._onElementCallbacks.push(callback);
     }
 
     /**
      * Internal method to notify callbacks about a new element.
+     * Also buffers the notification for late subscribers.
      */
     _notifyElement(propertyStream: PropertyStream<any>, index: number): void {
+        // Buffer this notification for late subscribers
+        this._elementBuffer.push({ propertyStream, index });
+
+        // Notify all currently registered callbacks
         for (const callback of this._onElementCallbacks) {
             callback(propertyStream, index);
         }

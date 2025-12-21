@@ -9,6 +9,17 @@ type FeatureItem = {
     stream: AsyncIterable<any>;
 };
 
+interface Article {
+    title: string;
+    author: string;
+    description: string;
+    image: {
+        url: string;
+        generated_with: string;
+    };
+    features: string[];
+}
+
 export function StreamingCard(props: { parserStream: AsyncIterable<string> | null, abortController: AbortController | null }) {
     const [title, setTitle] = useState<string>("");
     const [author, setAuthor] = useState<string>("");
@@ -30,7 +41,8 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
         }
 
         // 1. INSTANTIATE INSIDE USEEFFECT - using new JsonStream.parse() API
-        const stream = JsonStream.parse(props.parserStream);
+        const jsonStream = JsonStream.parse<Article>(props.parserStream);
+        const article = jsonStream.paths();
 
         // Reset values on new stream.
         setTitle("");
@@ -41,30 +53,30 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
         setFeatureItems([]);
 
         // 2. REGISTER LISTENERS IMMEDIATELY (Synchronously after creation)
-        void listenTo(stream.get<string>("title"), (value) => {
+        void listenTo(article.title, (value) => {
             setTitle((prev) => prev + value);
         }, { signal: props.abortController?.signal });
 
-        void listenTo(stream.get<string>("author"), (value) => {
+        void listenTo(article.author, (value) => {
             setAuthor((prev) => prev + value);
         }, { signal: props.abortController?.signal });
 
-        void listenTo(stream.get<string>("description"), (value) => {
+        void listenTo(article.description, (value) => {
             setDescription((prev) => prev + value);
         }, { signal: props.abortController?.signal });
 
-        void listenTo(stream.get<string>("image.url"), (value) => {
+        void listenTo(article.image.url, (value) => {
             setImageUrl((prev) => prev + value);
         }, { signal: props.abortController?.signal });
 
-        void listenTo(stream.get<string>("image.generated_with"), (value) => {
+        void listenTo(article.image.generated_with, (value) => {
             setImageGeneratedWith((prev) => prev + value);
         }, { signal: props.abortController?.signal });
 
         // Handle array of features - iterate over each element
         (async () => {
             let index = 0;
-            for await (const featureAsync of stream.get<string[]>("features")) {
+            for await (const featureAsync of article.features) {
                 const currentIndex = index++;
                 setFeatureItems((prev) => {
                     if (prev.some((p) => p.index === currentIndex)) return prev;
@@ -77,7 +89,7 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
 
         // 3. CLEANUP
         return () => {
-            stream.dispose();
+            jsonStream.dispose();
         };
     }, [props.parserStream, props.abortController]);
 
