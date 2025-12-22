@@ -23,14 +23,14 @@ Parse JSON reactively as LLM responses stream in. Subscribe to properties and re
 - [Quick Start](#quick-start)
 - [How It Works](#how-it-works)
 - [Feature Highlights](#feature-highlights)
-  - [Streaming Strings](#-streaming-strings)
-  - [Reactive Lists](#-reactive-lists)
-  - [Reactive Maps](#-reactive-maps)
-  - [All JSON Types](#-all-json-types)
-  - [Flexible API](#️-flexible-api)
-  - [Smart Casts](#-smart-casts)
-  - [Buffered vs Unbuffered Streams](#-buffered-vs-unbuffered-streams)
-  - [Yap Filter](#-yap-filter-closeonrootcomplete)
+  - [Streaming Strings](#streaming-strings)
+  - [Reactive Lists](#reactive-lists)
+  - [Reactive Maps](#reactive-maps)
+  - [All JSON Types](#all-json-types)
+  - [Flexible API](#flexible-api)
+  - [Smart Casts](#smart-casts)
+  - [Buffered vs Unbuffered Streams](#buffered-vs-unbuffered-streams)
+  - [Yap Filter](#yap-filter-closeonrootcomplete)
 - [Complete Example](#complete-example)
 - [API Reference](#api-reference)
 - [Robustness](#robustness)
@@ -94,16 +94,16 @@ const title = await stream.get<string>('title');
 await stream.dispose();
 ```
 
-### ✨ Cross-Platform Compatibility
+### Cross-Platform Compatibility
 
 This library uses **only async iterables** (`AsyncIterable<string>`), making it 100% platform-agnostic:
 
-- ✅ **Node.js** - All versions with async iterator support
-- ✅ **Deno** - Native compatibility
-- ✅ **Bun** - Native compatibility  
-- ✅ **Browsers** - Works with native Web Streams via adapters
-- ✅ **Cloudflare Workers** - Full support
-- ✅ **Edge runtimes** - Compatible with all edge computing platforms
+- **Node.js** - All versions with async iterator support
+- **Deno** - Native compatibility
+- **Bun** - Native compatibility  
+- **Browsers** - Works with native Web Streams via adapters
+- **Cloudflare Workers** - Full support
+- **Edge runtimes** - Compatible with all edge computing platforms
 
 **No polyfills required!** This library uses standard `AsyncIterable`, which is natively supported everywhere now. Unlike Node.js `stream` libraries that break in the browser, this works seamlessly across all platforms.
 
@@ -147,7 +147,7 @@ stream.get<number>('data.users[2].age')        // Deep nesting
 
 ## Feature Highlights
 
-### 🔤 Streaming Strings
+### Streaming Strings
 
 Display text as the LLM generates it, creating a smooth typing effect:
 
@@ -158,7 +158,7 @@ for await (const chunk of stream.get<string>('response')) {
 }
 ```
 
-### 📋 Reactive Lists
+### Reactive Lists
 
 Add items to your UI **the instant parsing begins**—even before their content arrives:
 
@@ -196,7 +196,7 @@ for await (const articleList of articles) {
 **Traditional parsers** wait for complete objects → jarring UI jumps.  
 **This approach** → smooth loading states that populate progressively.
 
-### 🗺️ Reactive Maps
+### Reactive Maps
 
 Maps stream their properties as they're discovered. You can iterate over snapshots to see the object build up:
 
@@ -218,7 +218,7 @@ const name = await userPaths.name;
 const age = await userPaths.age;
 ```
 
-### 🎯 All JSON Types
+### All JSON Types
 
 ```typescript
 stream.get<string>('name')      // String → streams chunks
@@ -247,7 +247,7 @@ const age: number = await paths.age;
 const active: boolean = await paths.active;
 ```
 
-### ⛓️ Flexible API
+### Flexible API
 
 Navigate complex structures with chained access:
 
@@ -264,7 +264,7 @@ const email2 = await paths.user.email;
 const city2 = await paths.user.address.city;
 ```
 
-### 🎭 Type Safety with Schemas
+### Type Safety with Schemas
 
 Define your schema once and get full TypeScript support:
 
@@ -291,7 +291,7 @@ for await (const items of paths.items) {
 }
 ```
 
-### 🔄 Buffered vs Unbuffered Streams
+### Buffered vs Unbuffered Streams
 
 Property streams offer two modes to handle different subscription timing scenarios:
 
@@ -318,7 +318,7 @@ for await (const snapshot of items.unbuffered()) {
 
 **Memory efficient**: Maps and Lists only buffer the latest state (O(1) memory), not the full history. Strings buffer chunks for accumulation.
 
-### 🛑 Yap Filter (closeOnRootComplete)
+### Yap Filter (closeOnRootComplete)
 
 Some LLMs "yap" after the JSON—adding explanatory text that can confuse downstream processing. The `closeOnRootComplete` option stops parsing the moment the root JSON object/array is complete:
 
@@ -707,7 +707,7 @@ MIT — see [LICENSE](LICENSE)
 
 **Made for TypeScript developers building the next generation of AI-powered apps**
 
-[⭐ Star](https://github.com/ComsIndeed/llm-json-stream-typescript) · [📦 npm](https://www.npmjs.com/package/llm-json-stream) · [🐛 Issues](https://github.com/ComsIndeed/llm-json-stream-typescript/issues)
+[Star](https://github.com/ComsIndeed/llm-json-stream-typescript) · [npm](https://www.npmjs.com/package/llm-json-stream) · [Issues](https://github.com/ComsIndeed/llm-json-stream-typescript/issues)
 
 </div>
 
