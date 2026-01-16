@@ -160,7 +160,9 @@ for await (const chunk of stream.get<string>('response')) {
 
 ### Reactive Lists
 
-Add items to your UI **the instant parsing begins**—even before their content arrives:
+Add items to your UI **the instant parsing begins**, even before their content arrives:
+
+<!-- TODO: Fix this, this aint true -->
 
 ```typescript
 const articles = stream.get<Article[]>('articles');
