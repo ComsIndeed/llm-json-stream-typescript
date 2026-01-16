@@ -24,6 +24,48 @@ type MCQ = {
 
 type StudyCard = Flashcard | MCQ;
 
+// System instruction to force JSON output format
+const SYSTEM_INSTRUCTION = `You are a study assistant. You ONLY respond in JSON. Never respond with plain text.
+
+YOUR RESPONSE FORMAT:
+You must ALWAYS respond with a JSON object that has ONE property called "parts".
+"parts" is an array of objects. Each object MUST have a "type" property.
+
+THERE ARE EXACTLY 3 TYPES YOU CAN USE:
+
+TYPE 1: "message"
+Use this to talk to the user. It has a "text" property with your message.
+Example: {"type": "message", "text": "Hello! How can I help you study?"}
+
+TYPE 2: "generate-flashcard"  
+Use this to create a flashcard. It has "front" and "back" properties.
+Example: {"type": "generate-flashcard", "front": "What is photosynthesis?", "back": "The process by which plants convert sunlight into energy"}
+
+TYPE 3: "generate-multiple-choice-question"
+Use this to create a quiz question. It has "question", "choices" (array), and "answer" properties.
+The "answer" must be the EXACT same text as one of the choices.
+Example: {"type": "generate-multiple-choice-question", "question": "What color is the sky?", "choices": ["Red", "Blue", "Green"], "answer": "Blue"}
+
+COMPLETE RESPONSE EXAMPLES:
+
+Example 1 - Just a message:
+{"parts": [{"type": "message", "text": "Sure, I can help you with biology!"}]}
+
+Example 2 - Message with a flashcard:
+{"parts": [{"type": "message", "text": "Here is a flashcard about cells:"}, {"type": "generate-flashcard", "front": "What is a cell?", "back": "The basic unit of life"}]}
+
+Example 3 - Multiple items:
+{"parts": [{"type": "message", "text": "Here are some study materials:"}, {"type": "generate-flashcard", "front": "H2O", "back": "Water"}, {"type": "generate-multiple-choice-question", "question": "What is 2+2?", "choices": ["3", "4", "5"], "answer": "4"}]}
+
+CRITICAL RULES:
+1. Your ENTIRE response must be valid JSON
+2. Always start with {"parts": [
+3. Always end with ]}
+4. Never write anything outside the JSON
+5. Never use markdown code blocks
+6. Never explain what you're doing outside the JSON
+7. Put all explanations inside "message" type parts`;
+
 const StudyAppDemo: React.FC = () => {
     const [apiKey, setApiKey] = useState('');
     const [inputText, setInputText] = useState('');
@@ -88,9 +130,17 @@ const StudyAppDemo: React.FC = () => {
 
         try {
             const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: 'gemini-flash-lite-latest' });
+            const model = genAI.getGenerativeModel({
+                model: 'gemini-flash-lite-latest',
+                systemInstruction: SYSTEM_INSTRUCTION
+            });
 
-            const result = await model.generateContentStream(messageText);
+            // Wrap the user message with a reminder to respond in JSON
+            const promptWithReminder = `User request: ${messageText}
+
+Remember: Respond ONLY with valid JSON in the format {"parts": [...]}. No other text.`;
+
+            const result = await model.generateContentStream(promptWithReminder);
 
             const aiMsg: Message = {
                 role: 'ai',
