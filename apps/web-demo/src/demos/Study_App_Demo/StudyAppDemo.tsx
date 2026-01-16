@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import ReactMarkdown from 'react-markdown';
 import './StudyAppDemo.css';
@@ -28,6 +28,13 @@ const StudyAppDemo: React.FC = () => {
     const [apiKey, setApiKey] = useState('');
     const [inputText, setInputText] = useState('');
     const [isTyping, setIsTyping] = useState(false);
+    const chatMessagesRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        if (chatMessagesRef.current) {
+            chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+        }
+    };
 
     const [messages, setMessages] = useState<Message[]>([
         {
@@ -36,6 +43,10 @@ const StudyAppDemo: React.FC = () => {
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
     ]);
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages, isTyping]);
 
     const [cards] = useState<StudyCard[]>([
         {
@@ -144,7 +155,7 @@ const StudyAppDemo: React.FC = () => {
                             <h2>AI Study Tutor</h2>
                             <p>Ready to build your study set</p>
                         </div>
-                        <div className="chat-messages">
+                        <div className="chat-messages" ref={chatMessagesRef}>
                             {messages.map((msg, idx) => (
                                 <div key={idx} className={`message ${msg.role}`}>
                                     <ReactMarkdown>{msg.content}</ReactMarkdown>
