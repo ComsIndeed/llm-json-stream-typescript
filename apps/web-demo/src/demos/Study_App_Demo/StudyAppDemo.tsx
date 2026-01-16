@@ -93,8 +93,8 @@ const StudyAppDemo: React.FC = () => {
                             </div>
 
                             {/* Quiz Card */}
-                            <div className="study-card" style={{ borderColor: '#eab308' }}>
-                                <div className="card-type" style={{ color: '#eab308' }}>Quick Quiz</div>
+                            <div className="study-card">
+                                <div className="card-type">Quick Quiz</div>
                                 <div className="card-title">Which part of the cell does the Calvin Cycle occur in?</div>
                                 <div className="quiz-options">
                                     <div className="quiz-option">
@@ -148,14 +148,6 @@ const StudyAppDemo: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* Add Card Placeholder */}
-                            <div className="study-card add-card-placeholder">
-                                <div className="add-icon">+</div>
-                                <div>
-                                    <strong>Add custom card</strong>
-                                    <p style={{ fontSize: '0.75rem', margin: '4px 0 0' }}>Manual entry or drag content here</p>
-                                </div>
-                            </div>
                         </div>
 
                         <div className="zoom-controls">
