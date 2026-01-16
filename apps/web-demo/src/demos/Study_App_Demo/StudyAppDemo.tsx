@@ -1,8 +1,71 @@
 import React, { useState } from 'react';
 import './StudyAppDemo.css';
 
+type Message = {
+    role: 'ai' | 'user';
+    content: string;
+    time: string;
+};
+
+type Flashcard = {
+    type: 'Flashcard';
+    title: string;
+    content: string;
+};
+
+type MCQ = {
+    type: 'MCQ';
+    question: string;
+    options: string[];
+    selectedIndex?: number;
+};
+
+type StudyCard = Flashcard | MCQ;
+
 const StudyAppDemo: React.FC = () => {
     const [inputText, setInputText] = useState('');
+
+    const [messages] = useState<Message[]>([
+        {
+            role: 'ai',
+            content: "Hello! I'm your AI tutor. I can help you generate flashcards, practice quizzes, or explain complex concepts. What are we studying today?",
+            time: '10:02 AM'
+        },
+        {
+            role: 'user',
+            content: "Let's create 5 flashcards about Photosynthesis and a quick MCQ about the Calvin cycle.",
+            time: '10:05 AM'
+        },
+        {
+            role: 'ai',
+            content: "Understood. Generating your study materials on the whiteboard now...",
+            time: '10:05 AM'
+        }
+    ]);
+
+    const [cards] = useState<StudyCard[]>([
+        {
+            type: 'Flashcard',
+            title: 'Chlorophyll',
+            content: 'A green pigment, present in all green plants, responsible for the absorption of light to provide energy for photosynthesis.'
+        },
+        {
+            type: 'MCQ',
+            question: 'Which part of the cell does the Calvin Cycle occur in?',
+            options: ['Thylakoid Membrane', 'Stroma', 'Cytoplasm'],
+            selectedIndex: 1
+        },
+        {
+            type: 'Flashcard',
+            title: 'ATP',
+            content: 'Adenosine triphosphate is an organic compound that provides energy to drive many processes in living cells.'
+        },
+        {
+            type: 'Flashcard',
+            title: 'Stomata',
+            content: 'Microscopic pores found on the epidermis of leaves and stems that facilitate gas exchange.'
+        }
+    ]);
 
     return (
         <div className="study-app-container">
@@ -15,18 +78,12 @@ const StudyAppDemo: React.FC = () => {
                             <p>Ready to build your study set</p>
                         </div>
                         <div className="chat-messages">
-                            <div className="message ai">
-                                Hello! I'm your AI tutor. I can help you generate flashcards, practice quizzes, or explain complex concepts. What are we studying today?
-                                <div className="message-time">10:02 AM</div>
-                            </div>
-                            <div className="message user">
-                                Let's create 5 flashcards about Photosynthesis and a quick MCQ about the Calvin cycle.
-                                <div className="message-time">10:05 AM</div>
-                            </div>
-                            <div className="message ai">
-                                Understood. Generating your study materials on the whiteboard now...
-                                <div className="message-time">10:05 AM</div>
-                            </div>
+                            {messages.map((msg, idx) => (
+                                <div key={idx} className={`message ${msg.role}`}>
+                                    {msg.content}
+                                    <div className="message-time">{msg.time}</div>
+                                </div>
+                            ))}
                         </div>
                         <div className="chat-input-area">
                             <div className="input-container">
@@ -74,80 +131,39 @@ const StudyAppDemo: React.FC = () => {
                         </div>
 
                         <div className="card-grid">
-                            {/* Flashcard 1 */}
-                            <div className="study-card">
-                                <div className="card-type">Flashcard</div>
-                                <div className="card-title">Chlorophyll</div>
-                                <div className="card-content">
-                                    A green pigment, present in all green plants, responsible for the absorption of light to provide energy for photosynthesis.
+                            {cards.map((card, idx) => (
+                                <div key={idx} className="study-card">
+                                    {card.type === 'Flashcard' ? (
+                                        <>
+                                            <div className="card-type">Flashcard</div>
+                                            <div className="card-title">{card.title}</div>
+                                            <div className="card-content">{card.content}</div>
+                                            <div className="card-footer">
+                                                <div className="card-action">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></svg>
+                                                    Flip card
+                                                </div>
+                                                <div className="card-action">
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="card-type">Quick Quiz</div>
+                                            <div className="card-title">{card.question}</div>
+                                            <div className="quiz-options">
+                                                {card.options.map((option, oIdx) => (
+                                                    <div key={oIdx} className={`quiz-option ${card.selectedIndex === oIdx ? 'selected' : ''}`}>
+                                                        {option}
+                                                        <div className="option-check"></div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
-                                <div className="card-footer">
-                                    <div className="card-action">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></svg>
-                                        Flip card
-                                    </div>
-                                    <div className="card-action">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Quiz Card */}
-                            <div className="study-card">
-                                <div className="card-type">Quick Quiz</div>
-                                <div className="card-title">Which part of the cell does the Calvin Cycle occur in?</div>
-                                <div className="quiz-options">
-                                    <div className="quiz-option">
-                                        Thylakoid Membrane
-                                        <div className="option-check"></div>
-                                    </div>
-                                    <div className="quiz-option selected">
-                                        Stroma
-                                        <div className="option-check"></div>
-                                    </div>
-                                    <div className="quiz-option">
-                                        Cytoplasm
-                                        <div className="option-check"></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Flashcard 2 */}
-                            <div className="study-card">
-                                <div className="card-type">Flashcard</div>
-                                <div className="card-title">ATP</div>
-                                <div className="card-content">
-                                    Adenosine triphosphate is an organic compound that provides energy to drive many processes in living cells.
-                                </div>
-                                <div className="card-footer">
-                                    <div className="card-action">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></svg>
-                                        Flip card
-                                    </div>
-                                    <div className="card-action">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Flashcard 3 */}
-                            <div className="study-card">
-                                <div className="card-type">Flashcard</div>
-                                <div className="card-title">Stomata</div>
-                                <div className="card-content">
-                                    Microscopic pores found on the epidermis of leaves and stems that facilitate gas exchange.
-                                </div>
-                                <div className="card-footer">
-                                    <div className="card-action">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></svg>
-                                        Flip card
-                                    </div>
-                                    <div className="card-action">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
-                                    </div>
-                                </div>
-                            </div>
-
+                            ))}
                         </div>
 
                         <div className="zoom-controls">
