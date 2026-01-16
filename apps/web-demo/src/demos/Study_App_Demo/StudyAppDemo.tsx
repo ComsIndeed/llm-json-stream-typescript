@@ -1,30 +1,263 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import ReactMarkdown from 'react-markdown';
+import { JsonStream, type AsyncJson } from '../../../../../packages/llm-json-stream/dist';
+import { listenTo } from '../../utils/listenTo';
 import './StudyAppDemo.css';
 
-type Message = {
-    role: 'ai' | 'user';
-    content: string;
-    time: string;
-};
+// ============================================================================
+// TYPE DEFINITIONS - Schema for LLM JSON response
+// ============================================================================
 
-type Flashcard = {
-    type: 'Flashcard';
-    title: string;
-    content: string;
-};
+interface MessagePart {
+    type: 'message';
+    text: string;
+}
 
-type MCQ = {
-    type: 'MCQ';
+interface FlashcardPart {
+    type: 'generate-flashcard';
+    front: string;
+    back: string;
+}
+
+interface MCQPart {
+    type: 'generate-multiple-choice-question';
     question: string;
-    options: string[];
-    selectedIndex?: number;
-};
+    choices: string[];
+    answer: string;
+}
 
-type StudyCard = Flashcard | MCQ;
+type Part = MessagePart | FlashcardPart | MCQPart;
 
-// System instruction to force JSON output format
+interface LLMResponse {
+    parts: Part[];
+}
+
+// ============================================================================
+// STREAMING COMPONENTS - Each handles its own stream consumption
+// ============================================================================
+
+/** Hook to stream text from an AsyncIterable */
+function useStreamingText(stream: AsyncIterable<string> | null): string {
+    const [text, setText] = useState('');
+
+    useEffect(() => {
+        if (!stream) return;
+        let cancelled = false;
+        setText('');
+
+        void listenTo(stream, (chunk) => {
+            if (cancelled) return;
+            setText(prev => prev + chunk);
+        });
+
+        return () => { cancelled = true; };
+    }, [stream]);
+
+    return text;
+}
+
+/** Message component - streams the text property */
+function StreamingMessage({ asyncJson }: { asyncJson: AsyncJson<Part> }) {
+    // Use .get() to access nested properties on AsyncJson
+    const textStream = asyncJson.get<string>('text');
+    const text = useStreamingText(textStream);
+
+    return (
+        <div className="streaming-message">
+            <div className="message-icon">💬</div>
+            <div className="message-text">{text || '...'}</div>
+        </div>
+    );
+}
+
+/** Flashcard component - streams front and back properties */
+function StreamingFlashcard({ asyncJson }: { asyncJson: AsyncJson<Part> }) {
+    const frontStream = asyncJson.get<string>('front');
+    const backStream = asyncJson.get<string>('back');
+
+    const front = useStreamingText(frontStream);
+    const back = useStreamingText(backStream);
+    const [isFlipped, setIsFlipped] = useState(false);
+
+    return (
+        <div className="study-card streaming" onClick={() => setIsFlipped(!isFlipped)}>
+            <div className="card-type">Flashcard</div>
+            <div className="card-title">{front || '...'}</div>
+            <div className="card-content" style={{ opacity: isFlipped ? 1 : 0.5 }}>
+                {isFlipped ? (back || '...') : 'Click to reveal'}
+            </div>
+            <div className="card-footer">
+                <div className="card-action">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></svg>
+                    Flip card
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/** MCQ component - streams question, choices array, and answer */
+function StreamingMCQ({ asyncJson }: { asyncJson: AsyncJson<Part> }) {
+    const questionStream = asyncJson.get<string>('question');
+    const answerStream = asyncJson.get<string>('answer');
+    const choicesStream = asyncJson.get<string[]>('choices');
+
+    const question = useStreamingText(questionStream);
+    const answer = useStreamingText(answerStream);
+
+    const [choices, setChoices] = useState<string[]>([]);
+    const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+    const [showAnswer, setShowAnswer] = useState(false);
+
+    // Handle streaming choices array - iterate over each element as it appears
+    useEffect(() => {
+        if (!choicesStream) return;
+        let cancelled = false;
+        setChoices([]);
+
+        (async () => {
+            try {
+                let idx = 0;
+                // Iterate over the choices array - each item is an AsyncJson<string>
+                for await (const choiceAsyncJson of choicesStream) {
+                    if (cancelled) break;
+                    const currentIdx = idx++;
+
+                    // Add empty slot for this choice
+                    setChoices(prev => [...prev, '']);
+
+                    // Stream the choice text (choiceAsyncJson is AsyncJson<string>, iterate for chunks)
+                    void listenTo(choiceAsyncJson as AsyncIterable<string>, (chunk) => {
+                        if (cancelled) return;
+                        setChoices(prev => {
+                            const updated = [...prev];
+                            updated[currentIdx] = (updated[currentIdx] || '') + chunk;
+                            return updated;
+                        });
+                    });
+                }
+            } catch (e) {
+                console.error('Error streaming choices:', e);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [choicesStream]);
+
+    const handleSelect = (index: number) => {
+        setSelectedIndex(index);
+        setShowAnswer(true);
+    };
+
+    return (
+        <div className="study-card streaming mcq">
+            <div className="card-type">Quick Quiz</div>
+            <div className="card-title">{question || '...'}</div>
+            <div className="quiz-options">
+                {choices.map((choice, idx) => {
+                    const isCorrect = showAnswer && choice === answer;
+                    const isWrong = showAnswer && selectedIndex === idx && choice !== answer;
+
+                    return (
+                        <div
+                            key={idx}
+                            className={`quiz-option ${selectedIndex === idx ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isWrong ? 'wrong' : ''}`}
+                            onClick={() => handleSelect(idx)}
+                        >
+                            {choice || '...'}
+                            <div className="option-check"></div>
+                        </div>
+                    );
+                })}
+            </div>
+            {showAnswer && (
+                <div className="answer-feedback">
+                    {selectedIndex !== null && choices[selectedIndex] === answer
+                        ? '✓ Correct!'
+                        : `✗ The answer is: ${answer}`}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ============================================================================
+// REACTIVE PART COMPONENT - Detects type and renders appropriate component
+// ============================================================================
+
+type PartState =
+    | { status: 'detecting' }
+    | { status: 'message'; asyncJson: AsyncJson<Part> }
+    | { status: 'flashcard'; asyncJson: AsyncJson<Part> }
+    | { status: 'mcq'; asyncJson: AsyncJson<Part> }
+    | { status: 'error'; error: string };
+
+function ReactivePart({ asyncJson, index }: { asyncJson: AsyncJson<Part>; index: number }) {
+    const [state, setState] = useState<PartState>({ status: 'detecting' });
+
+    useEffect(() => {
+        let cancelled = false;
+
+        // Use .get('type') to access the type property, then await its value
+        (async () => {
+            try {
+                // Get the type stream and await its final value
+                const type = await asyncJson.get<string>('type');
+                if (cancelled) return;
+
+                console.log('Part type detected:', type);
+
+                if (type === 'message') {
+                    setState({ status: 'message', asyncJson });
+                } else if (type === 'generate-flashcard') {
+                    setState({ status: 'flashcard', asyncJson });
+                } else if (type === 'generate-multiple-choice-question') {
+                    setState({ status: 'mcq', asyncJson });
+                } else {
+                    setState({ status: 'error', error: `Unknown type: ${type}` });
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Error detecting type:', error);
+                    setState({ status: 'error', error: String(error) });
+                }
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [asyncJson]);
+
+    const animStyle = { animation: `partIn 300ms ease ${index * 50}ms both` };
+
+    if (state.status === 'detecting') {
+        return (
+            <div className="streaming-part" style={animStyle}>
+                <div className="loading-shimmer">Detecting type...</div>
+            </div>
+        );
+    }
+
+    if (state.status === 'error') {
+        return (
+            <div className="streaming-part" style={animStyle}>
+                <div className="error-message">Error: {state.error}</div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="streaming-part" style={animStyle}>
+            {state.status === 'message' && <StreamingMessage asyncJson={state.asyncJson} />}
+            {state.status === 'flashcard' && <StreamingFlashcard asyncJson={state.asyncJson} />}
+            {state.status === 'mcq' && <StreamingMCQ asyncJson={state.asyncJson} />}
+        </div>
+    );
+}
+
+// ============================================================================
+// SYSTEM INSTRUCTION
+// ============================================================================
+
 const SYSTEM_INSTRUCTION = `You are a study assistant. You ONLY respond in JSON. Never respond with plain text.
 
 YOUR RESPONSE FORMAT:
@@ -66,67 +299,49 @@ CRITICAL RULES:
 6. Never explain what you're doing outside the JSON
 7. Put all explanations inside "message" type parts`;
 
+// ============================================================================
+// MAIN COMPONENT - Reactive stream handling
+// ============================================================================
+
+interface StreamingPartData {
+    index: number;
+    asyncJson: AsyncJson<Part>;
+}
+
 const StudyAppDemo: React.FC = () => {
     const [apiKey, setApiKey] = useState('');
     const [inputText, setInputText] = useState('');
-    const [isTyping, setIsTyping] = useState(false);
-    const chatMessagesRef = useRef<HTMLDivElement>(null);
+    const [isStreaming, setIsStreaming] = useState(false);
+    const [parts, setParts] = useState<StreamingPartData[]>([]);
+    const [rawJson, setRawJson] = useState('');
+    const [error, setError] = useState<string | null>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const jsonStreamRef = useRef<JsonStream<LLMResponse> | null>(null);
 
     const scrollToBottom = () => {
-        if (chatMessagesRef.current) {
-            chatMessagesRef.current.scrollTop = chatMessagesRef.current.scrollHeight;
+        if (contentRef.current) {
+            contentRef.current.scrollTop = contentRef.current.scrollHeight;
         }
     };
 
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            role: 'ai',
-            content: "Hello! I'm your AI tutor. I can help you generate flashcards, practice quizzes, or explain complex concepts. What are we studying today?",
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
-    ]);
-
     useEffect(() => {
         scrollToBottom();
-    }, [messages, isTyping]);
-
-    const [cards] = useState<StudyCard[]>([
-        {
-            type: 'Flashcard',
-            title: 'Chlorophyll',
-            content: 'A green pigment, present in all green plants, responsible for the absorption of light to provide energy for photosynthesis.'
-        },
-        {
-            type: 'MCQ',
-            question: 'Which part of the cell does the Calvin Cycle occur in?',
-            options: ['Thylakoid Membrane', 'Stroma', 'Cytoplasm'],
-            selectedIndex: 1
-        },
-        {
-            type: 'Flashcard',
-            title: 'ATP',
-            content: 'Adenosine triphosphate is an organic compound that provides energy to drive many processes in living cells.'
-        },
-        {
-            type: 'Flashcard',
-            title: 'Stomata',
-            content: 'Microscopic pores found on the epidermis of leaves and stems that facilitate gas exchange.'
-        }
-    ]);
+    }, [parts]);
 
     const handleSendMessage = async () => {
         if (!inputText.trim() || !apiKey) return;
 
         const messageText = inputText.trim();
-        const userMsg: Message = {
-            role: 'user',
-            content: messageText,
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-
-        setMessages(prev => [...prev, userMsg]);
         setInputText('');
-        setIsTyping(true);
+        setIsStreaming(true);
+        setParts([]);
+        setRawJson('');
+        setError(null);
+
+        // Cleanup previous stream
+        if (jsonStreamRef.current) {
+            jsonStreamRef.current.dispose();
+        }
 
         try {
             const genAI = new GoogleGenerativeAI(apiKey);
@@ -135,50 +350,135 @@ const StudyAppDemo: React.FC = () => {
                 systemInstruction: SYSTEM_INSTRUCTION
             });
 
-            // Wrap the user message with a reminder to respond in JSON
             const promptWithReminder = `User request: ${messageText}
 
 Remember: Respond ONLY with valid JSON in the format {"parts": [...]}. No other text.`;
 
             const result = await model.generateContentStream(promptWithReminder);
 
-            const aiMsg: Message = {
-                role: 'ai',
-                content: '',
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            };
+            // Convert Gemini stream to async iterable
+            async function* createTextStream() {
+                for await (const chunk of result.stream) {
+                    const text = chunk.text();
+                    setRawJson(prev => prev + text);
+                    yield text;
+                }
+            }
 
-            setMessages(prev => [...prev, aiMsg]);
-            setIsTyping(false);
+            // Parse with JsonStream
+            const jsonStream = JsonStream.parse<LLMResponse>(createTextStream());
+            jsonStreamRef.current = jsonStream;
 
-            let fullContent = '';
-            for await (const chunk of result.stream) {
-                const chunkText = chunk.text();
-                fullContent += chunkText;
-                const currentContent = fullContent;
-                setMessages(prev => {
-                    const newMessages = prev.slice(0, -1);
-                    return [...newMessages, {
-                        role: 'ai' as const,
-                        content: currentContent,
-                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            // Get the parts array stream using .get()
+            const partsStream = jsonStream.get<Part[]>('parts');
+
+            // REACTIVE: Listen to the parts array stream
+            // Each time a new part starts generating, we add it to state
+            let partIndex = 0;
+            for await (const partAsyncJson of partsStream) {
+                const currentIndex = partIndex++;
+                console.log('New part appeared at index:', currentIndex);
+
+                // Add the new part reactively - partAsyncJson is AsyncJson<Part>
+                setParts(prev => {
+                    // Avoid duplicates
+                    if (prev.some(p => p.index === currentIndex)) return prev;
+                    return [...prev, {
+                        index: currentIndex,
+                        asyncJson: partAsyncJson
                     }];
                 });
             }
-        } catch (error) {
-            console.error("Error calling Gemini:", error);
-            setMessages(prev => [...prev, {
-                role: 'ai',
-                content: "Error: Failed to connect to Gemini..",
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            }]);
+
+        } catch (err) {
+            console.error("Error:", err);
+            setError(err instanceof Error ? err.message : String(err));
         } finally {
-            setIsTyping(false);
+            setIsStreaming(false);
         }
     };
 
     return (
         <div className="study-app-container">
+            <style>{`
+                @keyframes partIn {
+                    from { opacity: 0; transform: translateY(12px) scale(0.97); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
+                }
+                .streaming-part {
+                    margin-bottom: 12px;
+                }
+                .streaming-message {
+                    display: flex;
+                    gap: 12px;
+                    padding: 16px;
+                    background: var(--bg-card);
+                    border-radius: 12px;
+                    border: 1px solid var(--border);
+                }
+                .message-icon {
+                    font-size: 1.5rem;
+                    flex-shrink: 0;
+                }
+                .message-text {
+                    color: var(--text-primary);
+                    line-height: 1.5;
+                    white-space: pre-wrap;
+                }
+                .loading-shimmer {
+                    padding: 16px;
+                    background: linear-gradient(90deg, var(--bg-card) 25%, var(--border) 50%, var(--bg-card) 75%);
+                    background-size: 200% 100%;
+                    animation: shimmer 1.5s infinite;
+                    border-radius: 12px;
+                    color: var(--text-secondary);
+                }
+                @keyframes shimmer {
+                    0% { background-position: 200% 0; }
+                    100% { background-position: -200% 0; }
+                }
+                .study-card.streaming {
+                    cursor: pointer;
+                }
+                .study-card.mcq .quiz-option.correct {
+                    background: rgba(34, 197, 94, 0.2);
+                    border-color: rgb(34, 197, 94);
+                }
+                .study-card.mcq .quiz-option.wrong {
+                    background: rgba(239, 68, 68, 0.2);
+                    border-color: rgb(239, 68, 68);
+                }
+                .answer-feedback {
+                    padding: 8px 12px;
+                    margin-top: 8px;
+                    background: var(--bg-sidebar);
+                    border-radius: 8px;
+                    font-size: 0.85rem;
+                }
+                .error-message {
+                    padding: 16px;
+                    background: rgba(239, 68, 68, 0.1);
+                    border: 1px solid rgba(239, 68, 68, 0.3);
+                    border-radius: 12px;
+                    color: rgb(239, 68, 68);
+                }
+                .raw-json-panel {
+                    background: var(--bg-sidebar);
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                    padding: 12px;
+                    flex: 1;
+                    overflow: auto;
+                }
+                .raw-json-panel pre {
+                    margin: 0;
+                    font-size: 0.75rem;
+                    color: var(--text-secondary);
+                    white-space: pre-wrap;
+                    word-break: break-all;
+                }
+            `}</style>
+
             <div className="main-wrapper">
                 <div className="content-area">
                     {/* Chat Panel */}
@@ -203,21 +503,35 @@ Remember: Respond ONLY with valid JSON in the format {"parts": [...]}. No other 
                         </div>
                         <div className="chat-header">
                             <h2>AI Study Tutor</h2>
-                            <p>Ready to build your study set</p>
+                            <p>Streaming JSON Parser Demo</p>
                         </div>
-                        <div className="chat-messages" ref={chatMessagesRef}>
-                            {messages.map((msg, idx) => (
-                                <div key={idx} className={`message ${msg.role}`}>
-                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
-                                    <div className="message-time">{msg.time}</div>
+                        <div className="chat-messages" ref={contentRef}>
+                            {parts.length === 0 && !isStreaming && !error && (
+                                <div className="message ai">
+                                    <p>Hello! I'm your AI tutor. Ask me to create flashcards or quiz questions!</p>
+                                    <p style={{ fontSize: '0.85rem', opacity: 0.7, marginTop: '8px' }}>
+                                        Try: "Make 3 flashcards about photosynthesis" or "Quiz me on world capitals"
+                                    </p>
                                 </div>
+                            )}
+
+                            {/* Render each part reactively */}
+                            {parts.map(({ index, asyncJson }) => (
+                                <ReactivePart key={index} asyncJson={asyncJson} index={index} />
                             ))}
-                            {isTyping && <div className="message ai">Typing...</div>}
+
+                            {isStreaming && parts.length === 0 && (
+                                <div className="message ai">Connecting to AI...</div>
+                            )}
+
+                            {error && (
+                                <div className="error-message">Error: {error}</div>
+                            )}
                         </div>
                         <div className="chat-input-area">
                             <div className="input-container">
                                 <textarea
-                                    placeholder="Type a command (e.g., 'Make more cards')"
+                                    placeholder="Type a command (e.g., 'Make flashcards about biology')"
                                     value={inputText}
                                     onChange={(e) => setInputText(e.target.value)}
                                     onKeyDown={(e) => {
@@ -228,86 +542,28 @@ Remember: Respond ONLY with valid JSON in the format {"parts": [...]}. No other 
                                     }}
                                 />
                                 <div className="input-footer">
-                                    <button className="send-btn" onClick={handleSendMessage} disabled={isTyping || !apiKey}>
+                                    <button className="send-btn" onClick={handleSendMessage} disabled={isStreaming || !apiKey}>
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
                                     </button>
                                 </div>
                             </div>
                             <div className="action-chips">
-                                <div className="chip">Summarize</div>
-                                <div className="chip">Add Practice Quiz</div>
-                                <div className="chip">Explainer Video</div>
+                                <div className="chip" onClick={() => setInputText('Make 3 flashcards about photosynthesis')}>Flashcards</div>
+                                <div className="chip" onClick={() => setInputText('Quiz me with 2 multiple choice questions about history')}>Quiz Me</div>
+                                <div className="chip" onClick={() => setInputText('Explain the water cycle and make a flashcard')}>Explain + Card</div>
                             </div>
                         </div>
                     </section>
 
-                    {/* Whiteboard Panel */}
+                    {/* Raw JSON Panel */}
                     <section className="whiteboard-panel">
                         <div className="whiteboard-toolbar">
-                            <div className="toolbar-group">
-                                <div className="tool-btn active">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z" /><path d="m13 13 6 6" /></svg>
-                                </div>
-                                <div className="tool-btn">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" /><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" /><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" /><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" /></svg>
-                                </div>
-                            </div>
-                            <div className="toolbar-group">
-                                <div className="tool-btn">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-                                </div>
-                                <div className="tool-btn">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                                </div>
-                                <div className="tool-btn">
-                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" /></svg>
-                                </div>
-                            </div>
+                            <h3 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                                📡 Raw JSON Stream
+                            </h3>
                         </div>
-
-                        <div className="card-grid">
-                            {cards.map((card, idx) => (
-                                <div key={idx} className="study-card">
-                                    {card.type === 'Flashcard' ? (
-                                        <>
-                                            <div className="card-type">Flashcard</div>
-                                            <div className="card-title">{card.title}</div>
-                                            <div className="card-content">{card.content}</div>
-                                            <div className="card-footer">
-                                                <div className="card-action">
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></svg>
-                                                    Flip card
-                                                </div>
-                                                <div className="card-action">
-                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>
-                                                </div>
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <div className="card-type">Quick Quiz</div>
-                                            <div className="card-title">{card.question}</div>
-                                            <div className="quiz-options">
-                                                {card.options.map((option, oIdx) => (
-                                                    <div key={oIdx} className={`quiz-option ${card.selectedIndex === oIdx ? 'selected' : ''}`}>
-                                                        {option}
-                                                        <div className="option-check"></div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="zoom-controls">
-                            <div className="zoom-btn">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" /></svg>
-                            </div>
-                            <div className="zoom-btn">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" /></svg>
-                            </div>
+                        <div className="raw-json-panel" style={{ margin: '16px' }}>
+                            <pre>{rawJson || 'JSON stream will appear here as it arrives...'}</pre>
                         </div>
                     </section>
                 </div>
