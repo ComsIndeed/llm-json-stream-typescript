@@ -27,11 +27,32 @@ function App() {
 
   return (
     <div>
-      <nav style={{ position: 'absolute', bottom: 0 }}>
-        <button onClick={() => setSelectedDemo('MainDemo')}>Main Demo</button>
-        <button onClick={() => setSelectedDemo('StudyAppDemo')}>Study App Demo</button>
-        {/* <button onClick={() => setSelectedDemo('UiGenDemo')}>UI Gen Demo</button> */}
-        {/* <button onClick={() => setSelectedDemo('ChatDemo')}>Chat Demo</button> */}
+      <nav style={{
+        position: 'fixed',
+        bottom: '10px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 100,
+        display: 'flex',
+        gap: '8px',
+        background: 'rgba(0,0,0,0.5)',
+        padding: '4px',
+        borderRadius: '20px',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255,255,255,0.1)'
+      }}>
+        <button
+          style={{ background: selectedDemo === 'MainDemo' ? '#0ea5e9' : 'transparent', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '16px', cursor: 'pointer', fontSize: '12px' }}
+          onClick={() => setSelectedDemo('MainDemo')}
+        >
+          Main Demo
+        </button>
+        <button
+          style={{ background: selectedDemo === 'StudyAppDemo' ? '#0ea5e9' : 'transparent', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '16px', cursor: 'pointer', fontSize: '12px' }}
+          onClick={() => setSelectedDemo('StudyAppDemo')}
+        >
+          Study App Demo
+        </button>
       </nav>
       {renderDemo()}
     </div >
