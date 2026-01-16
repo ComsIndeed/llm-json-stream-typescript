@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import ReactMarkdown from 'react-markdown';
 import './StudyAppDemo.css';
 
 type Message = {
@@ -78,17 +79,31 @@ const StudyAppDemo: React.FC = () => {
             const genAI = new GoogleGenerativeAI(apiKey);
             const model = genAI.getGenerativeModel({ model: 'gemini-flash-lite-latest' });
 
-            const result = await model.generateContent(messageText);
-            const response = await result.response;
-            const aiContent = response.text();
+            const result = await model.generateContentStream(messageText);
 
             const aiMsg: Message = {
                 role: 'ai',
-                content: aiContent,
+                content: '',
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
 
             setMessages(prev => [...prev, aiMsg]);
+            setIsTyping(false);
+
+            let fullContent = '';
+            for await (const chunk of result.stream) {
+                const chunkText = chunk.text();
+                fullContent += chunkText;
+                const currentContent = fullContent;
+                setMessages(prev => {
+                    const newMessages = prev.slice(0, -1);
+                    return [...newMessages, {
+                        role: 'ai' as const,
+                        content: currentContent,
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    }];
+                });
+            }
         } catch (error) {
             console.error("Error calling Gemini:", error);
             setMessages(prev => [...prev, {
@@ -132,7 +147,7 @@ const StudyAppDemo: React.FC = () => {
                         <div className="chat-messages">
                             {messages.map((msg, idx) => (
                                 <div key={idx} className={`message ${msg.role}`}>
-                                    {msg.content}
+                                    <ReactMarkdown>{msg.content}</ReactMarkdown>
                                     <div className="message-time">{msg.time}</div>
                                 </div>
                             ))}
