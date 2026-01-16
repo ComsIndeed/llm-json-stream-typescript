@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import './StudyAppDemo.css';
 
 type Message = {
@@ -23,23 +24,15 @@ type MCQ = {
 type StudyCard = Flashcard | MCQ;
 
 const StudyAppDemo: React.FC = () => {
+    const [apiKey, setApiKey] = useState('');
     const [inputText, setInputText] = useState('');
+    const [isTyping, setIsTyping] = useState(false);
 
-    const [messages] = useState<Message[]>([
+    const [messages, setMessages] = useState<Message[]>([
         {
             role: 'ai',
             content: "Hello! I'm your AI tutor. I can help you generate flashcards, practice quizzes, or explain complex concepts. What are we studying today?",
-            time: '10:02 AM'
-        },
-        {
-            role: 'user',
-            content: "Let's create 5 flashcards about Photosynthesis and a quick MCQ about the Calvin cycle.",
-            time: '10:05 AM'
-        },
-        {
-            role: 'ai',
-            content: "Understood. Generating your study materials on the whiteboard now...",
-            time: '10:05 AM'
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
     ]);
 
@@ -67,12 +60,71 @@ const StudyAppDemo: React.FC = () => {
         }
     ]);
 
+    const handleSendMessage = async () => {
+        if (!inputText.trim() || !apiKey) return;
+
+        const messageText = inputText.trim();
+        const userMsg: Message = {
+            role: 'user',
+            content: messageText,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+
+        setMessages(prev => [...prev, userMsg]);
+        setInputText('');
+        setIsTyping(true);
+
+        try {
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: 'gemini-flash-lite-latest' });
+
+            const result = await model.generateContent(messageText);
+            const response = await result.response;
+            const aiContent = response.text();
+
+            const aiMsg: Message = {
+                role: 'ai',
+                content: aiContent,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            setMessages(prev => [...prev, aiMsg]);
+        } catch (error) {
+            console.error("Error calling Gemini:", error);
+            setMessages(prev => [...prev, {
+                role: 'ai',
+                content: "Error: Failed to connect to Gemini..",
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }]);
+        } finally {
+            setIsTyping(false);
+        }
+    };
+
     return (
         <div className="study-app-container">
             <div className="main-wrapper">
                 <div className="content-area">
                     {/* Chat Panel */}
                     <section className="chat-panel">
+                        <div className="api-key-container" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
+                            <input
+                                type="password"
+                                placeholder="Gemini AI API Key"
+                                value={apiKey}
+                                onChange={(e) => setApiKey(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    background: 'var(--bg-sidebar)',
+                                    border: '1px solid var(--border)',
+                                    borderRadius: '8px',
+                                    padding: '8px 12px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.8rem',
+                                    outline: 'none'
+                                }}
+                            />
+                        </div>
                         <div className="chat-header">
                             <h2>AI Study Tutor</h2>
                             <p>Ready to build your study set</p>
@@ -84,6 +136,7 @@ const StudyAppDemo: React.FC = () => {
                                     <div className="message-time">{msg.time}</div>
                                 </div>
                             ))}
+                            {isTyping && <div className="message ai">Typing...</div>}
                         </div>
                         <div className="chat-input-area">
                             <div className="input-container">
@@ -91,9 +144,15 @@ const StudyAppDemo: React.FC = () => {
                                     placeholder="Type a command (e.g., 'Make more cards')"
                                     value={inputText}
                                     onChange={(e) => setInputText(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSendMessage();
+                                        }
+                                    }}
                                 />
                                 <div className="input-footer">
-                                    <button className="send-btn">
+                                    <button className="send-btn" onClick={handleSendMessage} disabled={isTyping || !apiKey}>
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
                                     </button>
                                 </div>
