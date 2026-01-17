@@ -1,7 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { JsonStream, type AsyncJson } from '../../../../../packages/llm-json-stream/dist';
-import { listenTo } from '../../utils/listenTo';
 import './StudyAppDemo.css';
 
 // ============================================================================
@@ -27,28 +26,37 @@ interface MCQPart {
 }
 
 type Part = MessagePart | FlashcardPart | MCQPart;
+type PartType = 'message' | 'generate-flashcard' | 'generate-multiple-choice-question';
 
 interface LLMResponse {
     parts: Part[];
 }
 
 // ============================================================================
-// STREAMING COMPONENTS - Each handles its own stream consumption
+// STREAMING COMPONENTS
 // ============================================================================
 
 /** Hook to stream text from an AsyncIterable */
 function useStreamingText(stream: AsyncIterable<string> | null): string {
     const [text, setText] = useState('');
+    const hasStartedRef = useRef(false);
 
     useEffect(() => {
-        if (!stream) return;
-        let cancelled = false;
-        setText('');
+        if (!stream || hasStartedRef.current) return;
+        hasStartedRef.current = true;
 
-        void listenTo(stream, (chunk) => {
-            if (cancelled) return;
-            setText(prev => prev + chunk);
-        });
+        let cancelled = false;
+
+        (async () => {
+            try {
+                for await (const chunk of stream) {
+                    if (cancelled) break;
+                    setText(prev => prev + chunk);
+                }
+            } catch (e) {
+                // Stream ended
+            }
+        })();
 
         return () => { cancelled = true; };
     }, [stream]);
@@ -56,10 +64,9 @@ function useStreamingText(stream: AsyncIterable<string> | null): string {
     return text;
 }
 
-/** Message component - streams the text property */
+/** Message component */
 function StreamingMessage({ asyncJson }: { asyncJson: AsyncJson<Part> }) {
-    // Use .get() to access nested properties on AsyncJson
-    const textStream = asyncJson.get<string>('text');
+    const textStream = useMemo(() => asyncJson.get<string>('text'), [asyncJson]);
     const text = useStreamingText(textStream);
 
     return (
@@ -70,10 +77,10 @@ function StreamingMessage({ asyncJson }: { asyncJson: AsyncJson<Part> }) {
     );
 }
 
-/** Flashcard component - streams front and back properties */
+/** Flashcard component */
 function StreamingFlashcard({ asyncJson }: { asyncJson: AsyncJson<Part> }) {
-    const frontStream = asyncJson.get<string>('front');
-    const backStream = asyncJson.get<string>('back');
+    const frontStream = useMemo(() => asyncJson.get<string>('front'), [asyncJson]);
+    const backStream = useMemo(() => asyncJson.get<string>('back'), [asyncJson]);
 
     const front = useStreamingText(frontStream);
     const back = useStreamingText(backStream);
@@ -96,11 +103,11 @@ function StreamingFlashcard({ asyncJson }: { asyncJson: AsyncJson<Part> }) {
     );
 }
 
-/** MCQ component - streams question, choices array, and answer */
+/** MCQ component */
 function StreamingMCQ({ asyncJson }: { asyncJson: AsyncJson<Part> }) {
-    const questionStream = asyncJson.get<string>('question');
-    const answerStream = asyncJson.get<string>('answer');
-    const choicesStream = asyncJson.get<string[]>('choices');
+    const questionStream = useMemo(() => asyncJson.get<string>('question'), [asyncJson]);
+    const answerStream = useMemo(() => asyncJson.get<string>('answer'), [asyncJson]);
+    const choicesStream = useMemo(() => asyncJson.get<string[]>('choices'), [asyncJson]);
 
     const question = useStreamingText(questionStream);
     const answer = useStreamingText(answerStream);
@@ -108,37 +115,37 @@ function StreamingMCQ({ asyncJson }: { asyncJson: AsyncJson<Part> }) {
     const [choices, setChoices] = useState<string[]>([]);
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [showAnswer, setShowAnswer] = useState(false);
+    const hasStartedChoicesRef = useRef(false);
 
-    // Handle streaming choices array - iterate over each element as it appears
     useEffect(() => {
-        if (!choicesStream) return;
+        if (!choicesStream || hasStartedChoicesRef.current) return;
+        hasStartedChoicesRef.current = true;
+
         let cancelled = false;
-        setChoices([]);
 
         (async () => {
             try {
                 let idx = 0;
-                // Iterate over the choices array - each item is an AsyncJson<string>
                 for await (const choiceAsyncJson of choicesStream) {
                     if (cancelled) break;
                     const currentIdx = idx++;
 
-                    // Add empty slot for this choice
                     setChoices(prev => [...prev, '']);
 
-                    // Stream the choice text (choiceAsyncJson is AsyncJson<string>, iterate for chunks)
-                    void listenTo(choiceAsyncJson as AsyncIterable<string>, (chunk) => {
-                        if (cancelled) return;
-                        setChoices(prev => {
-                            const updated = [...prev];
-                            updated[currentIdx] = (updated[currentIdx] || '') + chunk;
-                            return updated;
-                        });
-                    });
+                    (async () => {
+                        try {
+                            for await (const chunk of choiceAsyncJson as AsyncIterable<string>) {
+                                if (cancelled) break;
+                                setChoices(prev => {
+                                    const updated = [...prev];
+                                    updated[currentIdx] = (updated[currentIdx] || '') + chunk;
+                                    return updated;
+                                });
+                            }
+                        } catch (e) { /* done */ }
+                    })();
                 }
-            } catch (e) {
-                console.error('Error streaming choices:', e);
-            }
+            } catch (e) { /* done */ }
         })();
 
         return () => { cancelled = true; };
@@ -182,74 +189,23 @@ function StreamingMCQ({ asyncJson }: { asyncJson: AsyncJson<Part> }) {
 }
 
 // ============================================================================
-// REACTIVE PART COMPONENT - Detects type and renders appropriate component
+// PART RENDERER - Type is already known from parent
 // ============================================================================
 
-type PartState =
-    | { status: 'detecting' }
-    | { status: 'message'; asyncJson: AsyncJson<Part> }
-    | { status: 'flashcard'; asyncJson: AsyncJson<Part> }
-    | { status: 'mcq'; asyncJson: AsyncJson<Part> }
-    | { status: 'error'; error: string };
+interface PartRendererProps {
+    partType: PartType;
+    asyncJson: AsyncJson<Part>;
+    index: number;
+}
 
-function ReactivePart({ asyncJson, index }: { asyncJson: AsyncJson<Part>; index: number }) {
-    const [state, setState] = useState<PartState>({ status: 'detecting' });
-
-    useEffect(() => {
-        let cancelled = false;
-
-        // Use .get('type') to access the type property, then await its value
-        (async () => {
-            try {
-                // Get the type stream and await its final value
-                const type = await asyncJson.get<string>('type');
-                if (cancelled) return;
-
-                console.log('Part type detected:', type);
-
-                if (type === 'message') {
-                    setState({ status: 'message', asyncJson });
-                } else if (type === 'generate-flashcard') {
-                    setState({ status: 'flashcard', asyncJson });
-                } else if (type === 'generate-multiple-choice-question') {
-                    setState({ status: 'mcq', asyncJson });
-                } else {
-                    setState({ status: 'error', error: `Unknown type: ${type}` });
-                }
-            } catch (error) {
-                if (!cancelled) {
-                    console.error('Error detecting type:', error);
-                    setState({ status: 'error', error: String(error) });
-                }
-            }
-        })();
-
-        return () => { cancelled = true; };
-    }, [asyncJson]);
-
+function PartRenderer({ partType, asyncJson, index }: PartRendererProps) {
     const animStyle = { animation: `partIn 300ms ease ${index * 50}ms both` };
-
-    if (state.status === 'detecting') {
-        return (
-            <div className="streaming-part" style={animStyle}>
-                <div className="loading-shimmer">Detecting type...</div>
-            </div>
-        );
-    }
-
-    if (state.status === 'error') {
-        return (
-            <div className="streaming-part" style={animStyle}>
-                <div className="error-message">Error: {state.error}</div>
-            </div>
-        );
-    }
 
     return (
         <div className="streaming-part" style={animStyle}>
-            {state.status === 'message' && <StreamingMessage asyncJson={state.asyncJson} />}
-            {state.status === 'flashcard' && <StreamingFlashcard asyncJson={state.asyncJson} />}
-            {state.status === 'mcq' && <StreamingMCQ asyncJson={state.asyncJson} />}
+            {partType === 'message' && <StreamingMessage asyncJson={asyncJson} />}
+            {partType === 'generate-flashcard' && <StreamingFlashcard asyncJson={asyncJson} />}
+            {partType === 'generate-multiple-choice-question' && <StreamingMCQ asyncJson={asyncJson} />}
         </div>
     );
 }
@@ -300,11 +256,12 @@ CRITICAL RULES:
 7. Put all explanations inside "message" type parts`;
 
 // ============================================================================
-// MAIN COMPONENT - Reactive stream handling
+// MAIN COMPONENT
 // ============================================================================
 
 interface StreamingPartData {
     index: number;
+    partType: PartType;
     asyncJson: AsyncJson<Part>;
 }
 
@@ -338,7 +295,6 @@ const StudyAppDemo: React.FC = () => {
         setRawJson('');
         setError(null);
 
-        // Cleanup previous stream
         if (jsonStreamRef.current) {
             jsonStreamRef.current.dispose();
         }
@@ -356,7 +312,6 @@ Remember: Respond ONLY with valid JSON in the format {"parts": [...]}. No other 
 
             const result = await model.generateContentStream(promptWithReminder);
 
-            // Convert Gemini stream to async iterable
             async function* createTextStream() {
                 for await (const chunk of result.stream) {
                     const text = chunk.text();
@@ -365,26 +320,26 @@ Remember: Respond ONLY with valid JSON in the format {"parts": [...]}. No other 
                 }
             }
 
-            // Parse with JsonStream
             const jsonStream = JsonStream.parse<LLMResponse>(createTextStream());
             jsonStreamRef.current = jsonStream;
 
-            // Get the parts array stream using .get()
             const partsStream = jsonStream.get<Part[]>('parts');
 
-            // REACTIVE: Listen to the parts array stream
-            // Each time a new part starts generating, we add it to state
             let partIndex = 0;
             for await (const partAsyncJson of partsStream) {
                 const currentIndex = partIndex++;
-                console.log('New part appeared at index:', currentIndex);
 
-                // Add the new part reactively - partAsyncJson is AsyncJson<Part>
+                // EAGERLY await the type before adding to React state
+                // This ensures we have the type before the component mounts
+                const partType = await partAsyncJson.get<string>('type') as PartType;
+
+                console.log('Part', currentIndex, 'type:', partType);
+
                 setParts(prev => {
-                    // Avoid duplicates
                     if (prev.some(p => p.index === currentIndex)) return prev;
                     return [...prev, {
                         index: currentIndex,
+                        partType,
                         asyncJson: partAsyncJson
                     }];
                 });
@@ -481,7 +436,6 @@ Remember: Respond ONLY with valid JSON in the format {"parts": [...]}. No other 
 
             <div className="main-wrapper">
                 <div className="content-area">
-                    {/* Chat Panel */}
                     <section className="chat-panel">
                         <div className="api-key-container" style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
                             <input
@@ -515,13 +469,12 @@ Remember: Respond ONLY with valid JSON in the format {"parts": [...]}. No other 
                                 </div>
                             )}
 
-                            {/* Render each part reactively */}
-                            {parts.map(({ index, asyncJson }) => (
-                                <ReactivePart key={index} asyncJson={asyncJson} index={index} />
+                            {parts.map(({ index, partType, asyncJson }) => (
+                                <PartRenderer key={index} partType={partType} asyncJson={asyncJson} index={index} />
                             ))}
 
                             {isStreaming && parts.length === 0 && (
-                                <div className="message ai">Connecting to AI...</div>
+                                <div className="loading-shimmer">Waiting for response...</div>
                             )}
 
                             {error && (
@@ -555,7 +508,6 @@ Remember: Respond ONLY with valid JSON in the format {"parts": [...]}. No other 
                         </div>
                     </section>
 
-                    {/* Raw JSON Panel */}
                     <section className="whiteboard-panel">
                         <div className="whiteboard-toolbar">
                             <h3 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
