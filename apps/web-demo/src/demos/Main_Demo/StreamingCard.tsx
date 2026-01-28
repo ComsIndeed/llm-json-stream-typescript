@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { JsonStream } from "../../../../../packages/llm-json-stream/dist";
 import { listenTo } from "../../utils/listenTo";
-import { cardStyle } from "./MainDemo";
+import { cardStyle, PathSyntax } from "./MainDemo";
 import { FeaturePill } from "./FeaturePill";
 
 type FeatureItem = {
@@ -20,7 +20,7 @@ interface Article {
     features: string[];
 }
 
-export function StreamingCard(props: { parserStream: AsyncIterable<string> | null, abortController: AbortController | null }) {
+export function StreamingCard(props: { parserStream: AsyncIterable<string> | null, abortController: AbortController | null, pathSyntax: PathSyntax }) {
     const [title, setTitle] = useState<string>("");
     const [author, setAuthor] = useState<string>("");
     const [description, setDescription] = useState<string>("");
@@ -42,7 +42,6 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
 
         // 1. INSTANTIATE INSIDE USEEFFECT - using new JsonStream.parse() API
         const jsonStream = JsonStream.parse<Article>(props.parserStream);
-        const article = jsonStream.paths();
 
         // Reset values on new stream.
         setTitle("");
@@ -52,46 +51,85 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
         setImageGeneratedWith("");
         setFeatureItems([]);
 
-        // 2. REGISTER LISTENERS IMMEDIATELY (Synchronously after creation)
-        void listenTo(article.title, (value) => {
-            setTitle((prev) => prev + value);
-        }, { signal: props.abortController?.signal });
+        if (props.pathSyntax === 'proxy') {
+            // 2. PROXY-BASED API: using .paths()
+            const article = jsonStream.paths();
 
-        void listenTo(article.author, (value) => {
-            setAuthor((prev) => prev + value);
-        }, { signal: props.abortController?.signal });
+            void listenTo(article.title, (value) => {
+                setTitle((prev) => prev + value);
+            }, { signal: props.abortController?.signal });
 
-        void listenTo(article.description, (value) => {
-            setDescription((prev) => prev + value);
-        }, { signal: props.abortController?.signal });
+            void listenTo(article.author, (value) => {
+                setAuthor((prev) => prev + value);
+            }, { signal: props.abortController?.signal });
 
-        void listenTo(article.image.url, (value) => {
-            setImageUrl((prev) => prev + value);
-        }, { signal: props.abortController?.signal });
+            void listenTo(article.description, (value) => {
+                setDescription((prev) => prev + value);
+            }, { signal: props.abortController?.signal });
 
-        void listenTo(article.image.generated_with, (value) => {
-            setImageGeneratedWith((prev) => prev + value);
-        }, { signal: props.abortController?.signal });
+            void listenTo(article.image.url, (value) => {
+                setImageUrl((prev) => prev + value);
+            }, { signal: props.abortController?.signal });
 
-        // Handle array of features - iterate over each element
-        (async () => {
-            let index = 0;
-            for await (const featureAsync of article.features) {
-                const currentIndex = index++;
-                setFeatureItems((prev) => {
-                    if (prev.some((p) => p.index === currentIndex)) return prev;
-                    return [...prev, { index: currentIndex, stream: featureAsync }].sort(
-                        (a, b) => a.index - b.index,
-                    );
-                });
-            }
-        })();
+            void listenTo(article.image.generated_with, (value) => {
+                setImageGeneratedWith((prev) => prev + value);
+            }, { signal: props.abortController?.signal });
+
+            // Handle array of features - iterate over each element
+            (async () => {
+                let index = 0;
+                for await (const featureAsync of article.features) {
+                    const currentIndex = index++;
+                    setFeatureItems((prev) => {
+                        if (prev.some((p) => p.index === currentIndex)) return prev;
+                        return [...prev, { index: currentIndex, stream: featureAsync }].sort(
+                            (a, b) => a.index - b.index,
+                        );
+                    });
+                }
+            })();
+        } else {
+            // 2. STRING-BASED API: using .get()
+            void listenTo(jsonStream.get<string>('title'), (value) => {
+                setTitle((prev) => prev + value);
+            }, { signal: props.abortController?.signal });
+
+            void listenTo(jsonStream.get<string>('author'), (value) => {
+                setAuthor((prev) => prev + value);
+            }, { signal: props.abortController?.signal });
+
+            void listenTo(jsonStream.get<string>('description'), (value) => {
+                setDescription((prev) => prev + value);
+            }, { signal: props.abortController?.signal });
+
+            void listenTo(jsonStream.get<string>('image.url'), (value) => {
+                setImageUrl((prev) => prev + value);
+            }, { signal: props.abortController?.signal });
+
+            void listenTo(jsonStream.get<string>('image.generated_with'), (value) => {
+                setImageGeneratedWith((prev) => prev + value);
+            }, { signal: props.abortController?.signal });
+
+            // Handle array of features - iterate over each element
+            (async () => {
+                let index = 0;
+                for await (const featureAsync of jsonStream.get<string[]>('features')) {
+                    const currentIndex = index++;
+                    setFeatureItems((prev) => {
+                        if (prev.some((p) => p.index === currentIndex)) return prev;
+                        return [...prev, { index: currentIndex, stream: featureAsync }].sort(
+                            (a, b) => a.index - b.index,
+                        );
+                    });
+                }
+            })();
+        }
 
         // 3. CLEANUP
         return () => {
             jsonStream.dispose();
         };
-    }, [props.parserStream, props.abortController]);
+    }, [props.parserStream, props.abortController, props.pathSyntax]);
 
     const displayTitle = title || " ";
 
@@ -101,7 +139,12 @@ export function StreamingCard(props: { parserStream: AsyncIterable<string> | nul
                 ...cardStyle,
                 color: "#ffffff",
                 padding: 16,
-                backgroundColor: "#2b2b2b",
+                backgroundColor: props.pathSyntax === 'proxy'
+                    ? 'rgba(56, 189, 248, 0.08)'
+                    : 'rgba(192, 132, 252, 0.08)',
+                border: props.pathSyntax === 'proxy'
+                    ? '1px solid rgba(56, 189, 248, 0.15)'
+                    : '1px solid rgba(192, 132, 252, 0.15)',
                 borderRadius: 12,
                 width: "100%",
                 height: "100%",

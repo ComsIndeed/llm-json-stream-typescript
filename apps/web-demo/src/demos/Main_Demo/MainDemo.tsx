@@ -27,6 +27,8 @@ const exampleJson = JSON.stringify({
     }
 })
 
+export type PathSyntax = 'proxy' | 'string';
+
 export default function MainDemo() {
     const [previewValue, setPreviewValue] = useState<string>("")
     const [traditionalParserIterable, setTraditionalParserIterable] = useState<AsyncIterable<string> | null>(null)
@@ -35,6 +37,7 @@ export default function MainDemo() {
     const [abortController, setAbortController] = useState<AbortController | null>(null)
     const [msInterval, setMsInterval] = useState<number>(100)
     const [chunkSize, setChunkSize] = useState<number>(5)
+    const [pathSyntax, setPathSyntax] = useState<PathSyntax>('proxy')
 
     const startStream = () => {
         abortController?.abort();
@@ -142,13 +145,75 @@ export default function MainDemo() {
                     </div>
                 </div>
 
-                <div style={cardStyle}>
-                    <CodeSnippet code={"const stream = JsonStream.parse(response);"} style={{ fontSize: 14 }} />
-                    <CodeSnippet code={"const title = stream.get<string>('title');"} style={{ fontSize: 14 }} />
-                    <CodeSnippet code={"const author = stream.get<string>('author');"} style={{ fontSize: 14 }} />
-                    <CodeSnippet code={"const description = stream.get<string>('description');"} style={{ fontSize: 14 }} />
-                    <CodeSnippet code={"const imageUrl = stream.get<string>('image.url');"} style={{ fontSize: 14 }} />
-                    <CodeSnippet code={"for await (const feature of stream.get<string[]>('features')) {...}"} style={{ fontSize: 14 }} />
+                <div style={{
+                    ...cardStyle,
+                    backgroundColor: pathSyntax === 'proxy'
+                        ? 'rgba(56, 189, 248, 0.08)'
+                        : 'rgba(192, 132, 252, 0.08)',
+                    border: pathSyntax === 'proxy'
+                        ? '1px solid rgba(56, 189, 248, 0.2)'
+                        : '1px solid rgba(192, 132, 252, 0.2)',
+                }}>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                        <button
+                            onClick={() => { setPathSyntax('proxy'); startStream(); }}
+                            style={{
+                                flex: 1,
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                transition: 'all 0.2s ease',
+                                background: pathSyntax === 'proxy'
+                                    ? 'rgba(56, 189, 248, 0.3)'
+                                    : 'rgba(255, 255, 255, 0.05)',
+                                color: pathSyntax === 'proxy' ? '#38bdf8' : 'rgba(255, 255, 255, 0.6)',
+                            }}
+                        >
+                            Proxy Paths
+                        </button>
+                        <button
+                            onClick={() => { setPathSyntax('string'); startStream(); }}
+                            style={{
+                                flex: 1,
+                                padding: '8px 12px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                transition: 'all 0.2s ease',
+                                background: pathSyntax === 'string'
+                                    ? 'rgba(192, 132, 252, 0.3)'
+                                    : 'rgba(255, 255, 255, 0.05)',
+                                color: pathSyntax === 'string' ? '#c084fc' : 'rgba(255, 255, 255, 0.6)',
+                            }}
+                        >
+                            String Paths
+                        </button>
+                    </div>
+                    {pathSyntax === 'proxy' ? (
+                        <>
+                            <CodeSnippet code={"const stream = JsonStream.parse(response);"} style={{ fontSize: 14 }} />
+                            <CodeSnippet code={"const paths = stream.paths();"} style={{ fontSize: 14 }} />
+                            <CodeSnippet code={"const title = await paths.title;"} style={{ fontSize: 14 }} />
+                            <CodeSnippet code={"const author = await paths.author;"} style={{ fontSize: 14 }} />
+                            <CodeSnippet code={"const description = await paths.description;"} style={{ fontSize: 14 }} />
+                            <CodeSnippet code={"const imageUrl = await paths.image.url;"} style={{ fontSize: 14 }} />
+                            <CodeSnippet code={"for await (const feature of paths.features) {...}"} style={{ fontSize: 14 }} />
+                        </>
+                    ) : (
+                        <>
+                            <CodeSnippet code={"const stream = JsonStream.parse(response);"} style={{ fontSize: 14 }} />
+                            <CodeSnippet code={"const title = await stream.get<string>('title');"} style={{ fontSize: 14 }} />
+                            <CodeSnippet code={"const author = await stream.get<string>('author');"} style={{ fontSize: 14 }} />
+                            <CodeSnippet code={"const description = await stream.get<string>('description');"} style={{ fontSize: 14 }} />
+                            <CodeSnippet code={"const imageUrl = await stream.get<string>('image.url');"} style={{ fontSize: 14 }} />
+                            <CodeSnippet code={"for await (const feature of stream.get<string[]>('features')) {...}"} style={{ fontSize: 14 }} />
+                        </>
+                    )}
                 </div>
 
             </div>
@@ -166,7 +231,7 @@ export default function MainDemo() {
                 <div style={{ flex: '1 1 50%', minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                     <h3>Stream Parsing</h3>
                     <div style={{ flex: '1 1 auto', minHeight: 0, overflow: 'hidden', display: 'flex' }}>
-                        <StreamingCard parserStream={streamingParserIterable} abortController={abortController} />
+                        <StreamingCard parserStream={streamingParserIterable} abortController={abortController} pathSyntax={pathSyntax} />
                     </div>
                 </div>
             </div>

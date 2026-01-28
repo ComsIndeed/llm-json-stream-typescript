@@ -47,12 +47,14 @@ function App() {
         >
           Main Demo
         </button>
+        {/* Hidden for now
         <button
           style={{ background: selectedDemo === 'StudyAppDemo' ? '#0ea5e9' : 'transparent', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '16px', cursor: 'pointer', fontSize: '12px' }}
           onClick={() => setSelectedDemo('StudyAppDemo')}
         >
           Study App Demo
         </button>
+        */}
       </nav>
       {renderDemo()}
     </div >

@@ -126,24 +126,37 @@ function StreamingMCQ({ asyncJson }: { asyncJson: AsyncJson<Part> }) {
         (async () => {
             try {
                 let idx = 0;
-                for await (const choiceAsyncJson of choicesStream) {
+                for await (const choiceItem of choicesStream) {
                     if (cancelled) break;
                     const currentIdx = idx++;
 
-                    setChoices(prev => [...prev, '']);
+                    // choiceItem could be a string (final value) or AsyncIterable (streaming)
+                    if (typeof choiceItem === 'string') {
+                        // Already a complete string
+                        setChoices(prev => {
+                            const updated = [...prev, choiceItem];
+                            return updated;
+                        });
+                    } else if (choiceItem && typeof choiceItem === 'object' && Symbol.asyncIterator in choiceItem) {
+                        // It's an AsyncIterable, stream it
+                        setChoices(prev => [...prev, '']);
 
-                    (async () => {
-                        try {
-                            for await (const chunk of choiceAsyncJson as AsyncIterable<string>) {
-                                if (cancelled) break;
-                                setChoices(prev => {
-                                    const updated = [...prev];
-                                    updated[currentIdx] = (updated[currentIdx] || '') + chunk;
-                                    return updated;
-                                });
-                            }
-                        } catch (e) { /* done */ }
-                    })();
+                        (async () => {
+                            try {
+                                for await (const chunk of choiceItem as AsyncIterable<string>) {
+                                    if (cancelled) break;
+                                    setChoices(prev => {
+                                        const updated = [...prev];
+                                        updated[currentIdx] = (updated[currentIdx] || '') + chunk;
+                                        return updated;
+                                    });
+                                }
+                            } catch (e) { /* done */ }
+                        })();
+                    } else {
+                        // Fallback: treat as string
+                        setChoices(prev => [...prev, String(choiceItem)]);
+                    }
                 }
             } catch (e) { /* done */ }
         })();
