@@ -30,8 +30,28 @@ import { ObjectPropertyDelegate } from "./property_delegates/object_property_del
 import { ArrayPropertyDelegate } from "./property_delegates/array_property_delegate.js";
 
 /**
+ * Parsing event definition for observability.
+ */
+export interface ParseEvent {
+    type:
+        | "rootStart"
+        | "mapKeyDiscovered"
+        | "listElementStart"
+        | "propertyStart"
+        | "propertyComplete"
+        | "stringChunk"
+        | "yapFiltered"
+        | "thinkingTagStart"
+        | "thinkingTagEnd"
+        | "error";
+    propertyPath: string;
+    message: string;
+    data?: any;
+}
+
+/**
  * Controller interface for coordinating parsing operations.
- * Internal use only - not exposed in pub   lic API.
+ * Internal use only - not exposed in public API.
  */
 export class JsonStreamParserController {
     constructor(
@@ -96,14 +116,33 @@ export class JsonStreamParser {
     private closeOnRootComplete: boolean;
     private consumeStreamPromise: Promise<void> | null = null;
 
+    // Thinking tag skipper configuration
+    private skipThoughts: boolean;
+    private thinkingTags: [string, string];
+    private onLog?: (event: ParseEvent) => void;
+
+    // Thinking tag skipper state
+    private insideThinkingTags = false;
+    private tagBuffer = "";
+    private sawPotentialThinkingTags = false;
+    private potentialTagBuffer = "";
+
     /** Callback called when root delegate is created, with the type ('object' or 'array') */
     onRootDelegateCreated?: (type: "object" | "array") => void;
 
     constructor(
         stream: AsyncIterable<string>,
-        options?: { closeOnRootComplete?: boolean },
+        options?: {
+            closeOnRootComplete?: boolean;
+            skipThoughts?: boolean;
+            thinkingTags?: [string, string];
+            onLog?: (event: ParseEvent) => void;
+        },
     ) {
         this.closeOnRootComplete = options?.closeOnRootComplete ?? true;
+        this.skipThoughts = options?.skipThoughts ?? false;
+        this.thinkingTags = options?.thinkingTags ?? ["<think>", "</think>"];
+        this.onLog = options?.onLog;
 
         this.controller = new JsonStreamParserController(
             this.addPropertyChunk.bind(this),
@@ -117,6 +156,15 @@ export class JsonStreamParser {
 
         // Start consuming the stream
         this.consumeStreamPromise = this.consumeStream(stream);
+    }
+
+    private emitLog(
+        type: ParseEvent["type"],
+        propertyPath: string,
+        message: string,
+        data?: any,
+    ): void {
+        this.onLog?.({ type, propertyPath, message, data });
     }
 
     private async consumeStream(stream: AsyncIterable<string>): Promise<void> {
@@ -136,6 +184,11 @@ export class JsonStreamParser {
                     this.rootDelegate &&
                     this.rootDelegate.done
                 ) {
+                    this.emitLog(
+                        "yapFiltered",
+                        "",
+                        "Yap filter triggered - ignoring text after root JSON",
+                    );
                     this.streamAbortController?.abort();
                     break;
                 }
@@ -145,10 +198,10 @@ export class JsonStreamParser {
             this.handleStreamEnd();
         } catch (error) {
             // Stream error - reject all pending controllers
+            const err = error instanceof Error ? error : new Error(String(error));
+            this.emitLog("error", "", `Stream error: ${err.message}`, err);
             for (const controller of this.propertyControllers.values()) {
-                controller.completeError(
-                    error instanceof Error ? error : new Error(String(error)),
-                );
+                controller.completeError(err);
             }
         }
     }
@@ -356,30 +409,20 @@ export class JsonStreamParser {
                     return;
                 }
 
-                if (this.rootDelegate !== null) {
-                    this.rootDelegate.addCharacter(character);
-                    continue;
-                }
-
-                // Skip leading whitespace before root element
-                if (/\s/.test(character)) {
-                    continue;
-                }
-
-                if (character === "{") {
-                    this.rootDelegate = new ObjectPropertyDelegate(
-                        "",
-                        this.controller,
-                    );
-                    this.onRootDelegateCreated?.("object");
-                    this.rootDelegate.addCharacter(character);
-                } else if (character === "[") {
-                    this.rootDelegate = new ArrayPropertyDelegate(
-                        "",
-                        this.controller,
-                    );
-                    this.onRootDelegateCreated?.("array");
-                    this.rootDelegate.addCharacter(character);
+                // Handle thinking tag skipping if enabled
+                if (this.skipThoughts) {
+                    const processed = this.processCharacterForThinkingTags(character);
+                    if (processed.length === 0) {
+                        continue;
+                    }
+                    // Process all characters returned by the sliding window skipper
+                    for (const char of processed) {
+                        this.processSingleCharacter(char);
+                    }
+                } else {
+                    // Even when skipThoughts is disabled, detect potential tags for hints
+                    this.detectPotentialThinkingTags(character);
+                    this.processSingleCharacter(character);
                 }
             }
 
@@ -395,7 +438,110 @@ export class JsonStreamParser {
                 this.streamAbortController?.abort();
             }
         } catch (e) {
-            // Parsing error - already handled by completing specific controller with error
+            this.emitLog("error", "", `Parsing error: ${e}`, e);
+        }
+    }
+
+    private processSingleCharacter(character: string): void {
+        if (this.rootDelegate !== null) {
+            this.rootDelegate.addCharacter(character);
+            return;
+        }
+
+        // Skip leading whitespace before root element
+        if (/\s/.test(character)) {
+            return;
+        }
+
+        if (character === "{") {
+            this.emitLog("rootStart", "", "Started parsing root object");
+            this.rootDelegate = new ObjectPropertyDelegate(
+                "",
+                this.controller,
+            );
+            this.onRootDelegateCreated?.("object");
+            this.rootDelegate.addCharacter(character);
+        } else if (character === "[") {
+            this.emitLog("rootStart", "", "Started parsing root array");
+            this.rootDelegate = new ArrayPropertyDelegate(
+                "",
+                this.controller,
+            );
+            this.onRootDelegateCreated?.("array");
+            this.rootDelegate.addCharacter(character);
+        }
+    }
+
+    /**
+     * Sliding-window thinking tag skipper.
+     * Guarantees zero character loss on partial match deviations.
+     */
+    private processCharacterForThinkingTags(character: string): string[] {
+        const [startTag, endTag] = this.thinkingTags;
+
+        if (this.insideThinkingTags) {
+            this.tagBuffer += character;
+
+            if (this.tagBuffer.endsWith(endTag)) {
+                this.insideThinkingTags = false;
+                this.tagBuffer = "";
+                this.emitLog("thinkingTagEnd", "", "Exited thinking tags");
+            } else if (this.tagBuffer.length > endTag.length) {
+                this.tagBuffer = this.tagBuffer.slice(-endTag.length);
+            }
+
+            return [];
+        } else {
+            const currentAttempt = this.tagBuffer + character;
+
+            if (currentAttempt === startTag) {
+                this.insideThinkingTags = true;
+                this.tagBuffer = "";
+                this.emitLog("thinkingTagStart", "", "Entered thinking tags");
+                return [];
+            }
+
+            if (startTag.startsWith(currentAttempt)) {
+                this.tagBuffer = currentAttempt;
+                return [];
+            }
+
+            if (this.tagBuffer.length === 0) {
+                return [character];
+            }
+
+            // Sliding window flush
+            const charsToFlush = this.tagBuffer + character;
+            const firstChar = charsToFlush.charAt(0);
+            const remaining = charsToFlush.slice(1);
+
+            this.tagBuffer = ""; // Reset buffer before re-feeding
+
+            const flushed = [firstChar];
+            for (const char of remaining) {
+                flushed.push(...this.processCharacterForThinkingTags(char));
+            }
+            return flushed;
+        }
+    }
+
+    /**
+     * Detects potential thinking tags to output warnings on type mismatches.
+     */
+    private detectPotentialThinkingTags(character: string): void {
+        if (this.rootDelegate !== null) return;
+
+        const [startTag] = this.thinkingTags;
+        this.potentialTagBuffer += character;
+
+        if (this.potentialTagBuffer.endsWith(startTag)) {
+            this.sawPotentialThinkingTags = true;
+            this.potentialTagBuffer = "";
+            return;
+        }
+
+        if (this.potentialTagBuffer.length > startTag.length) {
+            this.potentialTagBuffer = this.potentialTagBuffer.slice(-startTag.length);
         }
     }
 
@@ -428,7 +574,6 @@ export class JsonStreamParser {
             // Arrays emit snapshots - push to async iterator without completing
             controller.propertyStream._pushValue(params.chunk as any[]);
         }
-        // Numbers, booleans, and nulls don't receive chunks - they complete directly
     }
 
     private getControllerForPath(
@@ -468,9 +613,11 @@ export class JsonStreamParser {
                 return existing.propertyStream;
             } else {
                 // Type mismatch - complete existing controller with error
-                const error = new Error(
-                    `Type mismatch at path "${propertyPath}": requested ${streamType} but found different type`,
-                );
+                let errorMessage = `Type mismatch at path "${propertyPath}": requested ${streamType} but found different type`;
+                if (this.sawPotentialThinkingTags && !this.skipThoughts) {
+                    errorMessage += `\n\nHint: The input may contain thinking/reasoning tags before the JSON. Try setting skipThoughts: true in the JsonStream options.`;
+                }
+                const error = new Error(errorMessage);
                 existing.completeError(error);
                 throw error;
             }

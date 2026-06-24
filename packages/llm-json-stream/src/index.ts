@@ -56,6 +56,9 @@ export type {
     JsonStreamOptions,
 } from "./classes/json_stream.js";
 
+// Observability types
+export type { ParseEvent } from "./classes/json_stream_parser.js";
+
 // Utilities (for testing and advanced usage)
 export { streamTextInChunks } from "./utilities/stream_text_in_chunks.js";
 export type { StreamTextOptions } from "./utilities/stream_text_in_chunks.js";

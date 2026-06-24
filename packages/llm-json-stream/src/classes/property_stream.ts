@@ -3,15 +3,15 @@
  * These are the public API classes that users interact with.
  *
  * Uses native async iterators as the primary streaming interface,
- * providing a modern, cross-platform approach that works in Node.js,
- * Deno, Bun, and browsers.
+ * providing a modern, event-driven, cross-platform approach that
+ * works in Node.js, Deno, Bun, and browsers.
  */
 
 import { JsonStreamParserController } from "./json_stream_parser.js";
 
 /**
  * Internal interface for pushing values to the async iterator.
- * This is used by the stream controllers to emit values.
+ * Kept for backwards compatibility.
  */
 export interface AsyncIteratorController<T> {
     push(value: T): void;
@@ -21,7 +21,7 @@ export interface AsyncIteratorController<T> {
 
 /**
  * Creates an async iterator with a controller for pushing values.
- * This is the foundation for all streaming in the library.
+ * Kept for backwards compatibility.
  */
 export function createAsyncIterator<T>(): {
     iterator: AsyncIterableIterator<T>;
@@ -37,22 +37,15 @@ export function createAsyncIterator<T>(): {
             return this;
         },
         async next(): Promise<IteratorResult<T>> {
-            // If there's an error, throw it
             if (error) {
                 throw error;
             }
-
-            // If there are queued values, return the next one
             if (queue.length > 0) {
                 return { value: queue.shift()!, done: false };
             }
-
-            // If done and queue is empty, signal completion
             if (isDone) {
                 return { value: undefined as any, done: true };
             }
-
-            // Wait for a value to be pushed
             return new Promise<IteratorResult<T>>((res) => {
                 resolve = res;
             });
@@ -62,7 +55,6 @@ export function createAsyncIterator<T>(): {
     const controller: AsyncIteratorController<T> = {
         push(value: T) {
             if (isDone) return;
-
             if (resolve) {
                 resolve({ value, done: false });
                 resolve = null;
@@ -81,8 +73,6 @@ export function createAsyncIterator<T>(): {
             error = err;
             isDone = true;
             if (resolve) {
-                // For errors, we need to reject the promise
-                // We do this by creating a rejected result
                 resolve({ value: undefined as any, done: true });
                 resolve = null;
             }
@@ -91,6 +81,8 @@ export function createAsyncIterator<T>(): {
 
     return { iterator, controller };
 }
+
+type StreamListener<T> = (value: T, sequenceNumber: number) => void;
 
 /**
  * Base class for all property streams.
@@ -111,31 +103,25 @@ export function createAsyncIterator<T>(): {
 export class PropertyStream<T> implements AsyncIterable<T>, PromiseLike<T> {
     protected _promise: Promise<T>;
     protected parserController: JsonStreamParserController;
-    protected _iteratorController: AsyncIteratorController<T>;
-    protected _iterator: AsyncIterableIterator<T>;
 
-    // Buffered values for late subscribers
-    protected _buffer: T[] = [];
+    // Sequence-number based streaming state
+    protected _sequenceNumber = 0;
     protected _isComplete = false;
+    protected _errorObj: Error | null = null;
+    protected _listeners = new Set<StreamListener<T>>();
+
+    // Buffered values for late subscribers (defaults to replay-all)
+    protected _buffer: Array<{ value: T; sequenceNumber: number }> = [];
 
     constructor(
         promise: Promise<T>,
         parserController: JsonStreamParserController,
-        iteratorController?: AsyncIteratorController<T>,
-        iterator?: AsyncIterableIterator<T>,
+        // Deprecated parameters kept for backwards compatibility
+        _iteratorController?: any,
+        _iterator?: any,
     ) {
         this._promise = promise;
         this.parserController = parserController;
-
-        if (iteratorController && iterator) {
-            this._iteratorController = iteratorController;
-            this._iterator = iterator;
-        } else {
-            // Create default iterator
-            const { iterator: iter, controller } = createAsyncIterator<T>();
-            this._iterator = iter;
-            this._iteratorController = controller;
-        }
     }
 
     /**
@@ -214,12 +200,31 @@ export class PropertyStream<T> implements AsyncIterable<T>, PromiseLike<T> {
     }
 
     /**
+     * Subclass-specific buffering strategy. Override this to customize what is buffered.
+     */
+    protected _storeValue(value: T): void {
+        this._buffer.push({ value, sequenceNumber: this._sequenceNumber });
+    }
+
+    /**
+     * Subclass-specific buffer retrieval. Override this to customize what is replayed.
+     */
+    protected _getBufferedValues(lastSeenSequence: number): Array<{ value: T; sequenceNumber: number }> {
+        return this._buffer.filter(item => item.sequenceNumber > lastSeenSequence);
+    }
+
+    /**
      * Internal method to push a value to the stream.
      * Called by property stream controllers.
      */
     _pushValue(value: T): void {
-        this._buffer.push(value);
-        this._iteratorController.push(value);
+        this._sequenceNumber++;
+        this._storeValue(value);
+
+        // Notify all active listeners of the new value
+        for (const listener of this._listeners) {
+            listener(value, this._sequenceNumber);
+        }
     }
 
     /**
@@ -228,7 +233,12 @@ export class PropertyStream<T> implements AsyncIterable<T>, PromiseLike<T> {
      */
     _complete(): void {
         this._isComplete = true;
-        this._iteratorController.complete();
+
+        // Notify all active listeners of completion
+        for (const listener of this._listeners) {
+            listener(undefined as any, -1);
+        }
+        this._listeners.clear();
     }
 
     /**
@@ -237,61 +247,83 @@ export class PropertyStream<T> implements AsyncIterable<T>, PromiseLike<T> {
      */
     _error(err: Error): void {
         this._isComplete = true;
-        this._iteratorController.error(err);
+        this._errorObj = err;
+
+        // Notify all active listeners of the error
+        for (const listener of this._listeners) {
+            listener(undefined as any, -2);
+        }
+        this._listeners.clear();
     }
 
     /**
      * Creates a buffered iterator that replays all previous values.
      */
     private _createBufferedIterator(): AsyncIterableIterator<T> {
-        let bufferIndex = 0;
+        let lastSeenSequence = 0;
         const self = this;
+        let pendingResolve: ((result: IteratorResult<T>) => void) | null = null;
+        let pendingReject: ((err: any) => void) | null = null;
+
+        const listener: StreamListener<T> = (value, seqNum) => {
+            if (seqNum === -1) {
+                // Complete
+                if (pendingResolve) {
+                    pendingResolve({ value: undefined as any, done: true });
+                    pendingResolve = null;
+                }
+            } else if (seqNum === -2) {
+                // Error
+                if (pendingReject) {
+                    pendingReject(self._errorObj);
+                    pendingReject = null;
+                }
+            } else if (seqNum > lastSeenSequence) {
+                lastSeenSequence = seqNum;
+                if (pendingResolve) {
+                    pendingResolve({ value, done: false });
+                    pendingResolve = null;
+                }
+            }
+        };
 
         return {
             [Symbol.asyncIterator]() {
                 return this;
             },
             async next(): Promise<IteratorResult<T>> {
-                // First, replay buffered values
-                if (bufferIndex < self._buffer.length) {
-                    return { value: self._buffer[bufferIndex++]!, done: false };
+                if (self._errorObj) {
+                    throw self._errorObj;
                 }
 
-                // If complete and no more buffered values, we're done
+                // 1. First, replay buffered/past values
+                const buffered = self._getBufferedValues(lastSeenSequence);
+                if (buffered.length > 0) {
+                    const item = buffered[0];
+                    if (item) {
+                        lastSeenSequence = item.sequenceNumber;
+                        return { value: item.value, done: false };
+                    }
+                }
+
+                // 2. If complete and no more buffered values, we're done
                 if (self._isComplete) {
                     return { value: undefined as any, done: true };
                 }
 
-                // Wait for new live values
-                return new Promise<IteratorResult<T>>((resolve) => {
-                    const checkBuffer = () => {
-                        if (bufferIndex < self._buffer.length) {
-                            resolve({
-                                value: self._buffer[bufferIndex++]!,
-                                done: false,
-                            });
-                            return true;
-                        }
-                        if (self._isComplete) {
-                            resolve({ value: undefined as any, done: true });
-                            return true;
-                        }
-                        return false;
-                    };
-
-                    // Check periodically for new values
-                    const interval = setInterval(() => {
-                        if (checkBuffer()) {
-                            clearInterval(interval);
-                        }
-                    }, 1);
-
-                    // Also check immediately
-                    if (checkBuffer()) {
-                        clearInterval(interval);
-                    }
+                // 3. Wait for new live values
+                return new Promise<IteratorResult<T>>((resolve, reject) => {
+                    pendingResolve = resolve;
+                    pendingReject = reject;
+                    self._listeners.add(listener);
+                }).finally(() => {
+                    self._listeners.delete(listener);
                 });
             },
+            async return(value?: any): Promise<IteratorResult<T>> {
+                self._listeners.delete(listener);
+                return { value, done: true };
+            }
         };
     }
 
@@ -299,54 +331,66 @@ export class PropertyStream<T> implements AsyncIterable<T>, PromiseLike<T> {
      * Creates an unbuffered iterator that only receives new values.
      */
     private _createUnbufferedIterator(): AsyncIterableIterator<T> {
+        let lastSeenSequence = this._sequenceNumber;
         const self = this;
-        let lastCheckedIndex = this._buffer.length; // Start from current position
+        let pendingResolve: ((result: IteratorResult<T>) => void) | null = null;
+        let pendingReject: ((err: any) => void) | null = null;
+
+        const listener: StreamListener<T> = (value, seqNum) => {
+            if (seqNum === -1) {
+                if (pendingResolve) {
+                    pendingResolve({ value: undefined as any, done: true });
+                    pendingResolve = null;
+                }
+            } else if (seqNum === -2) {
+                if (pendingReject) {
+                    pendingReject(self._errorObj);
+                    pendingReject = null;
+                }
+            } else if (seqNum > lastSeenSequence) {
+                lastSeenSequence = seqNum;
+                if (pendingResolve) {
+                    pendingResolve({ value, done: false });
+                    pendingResolve = null;
+                }
+            }
+        };
 
         return {
             [Symbol.asyncIterator]() {
                 return this;
             },
             async next(): Promise<IteratorResult<T>> {
+                if (self._errorObj) {
+                    throw self._errorObj;
+                }
+
                 // Check for new values since subscription
-                if (
-                    self._isComplete && lastCheckedIndex >= self._buffer.length
-                ) {
+                const buffered = self._getBufferedValues(lastSeenSequence);
+                if (buffered.length > 0) {
+                    const item = buffered[0];
+                    if (item) {
+                        lastSeenSequence = item.sequenceNumber;
+                        return { value: item.value, done: false };
+                    }
+                }
+
+                if (self._isComplete) {
                     return { value: undefined as any, done: true };
                 }
 
-                if (lastCheckedIndex < self._buffer.length) {
-                    return {
-                        value: self._buffer[lastCheckedIndex++]!,
-                        done: false,
-                    };
-                }
-
-                // Wait for next value
-                return new Promise<IteratorResult<T>>((resolve) => {
-                    const checkForNew = () => {
-                        if (self._buffer.length > lastCheckedIndex) {
-                            const newValue = self._buffer[lastCheckedIndex++]!;
-                            resolve({ value: newValue, done: false });
-                            return true;
-                        }
-                        if (self._isComplete) {
-                            resolve({ value: undefined as any, done: true });
-                            return true;
-                        }
-                        return false;
-                    };
-
-                    const interval = setInterval(() => {
-                        if (checkForNew()) {
-                            clearInterval(interval);
-                        }
-                    }, 1);
-
-                    if (checkForNew()) {
-                        clearInterval(interval);
-                    }
+                return new Promise<IteratorResult<T>>((resolve, reject) => {
+                    pendingResolve = resolve;
+                    pendingReject = reject;
+                    self._listeners.add(listener);
+                }).finally(() => {
+                    self._listeners.delete(listener);
                 });
             },
+            async return(value?: any): Promise<IteratorResult<T>> {
+                self._listeners.delete(listener);
+                return { value, done: true };
+            }
         };
     }
 }
@@ -359,8 +403,8 @@ export class StringPropertyStream extends PropertyStream<string> {
     constructor(
         promise: Promise<string>,
         parserController: JsonStreamParserController,
-        iteratorController?: AsyncIteratorController<string>,
-        iterator?: AsyncIterableIterator<string>,
+        iteratorController?: any,
+        iterator?: any,
     ) {
         super(promise, parserController, iteratorController, iterator);
     }
@@ -389,11 +433,19 @@ export class ObjectPropertyStream extends PropertyStream<Record<string, any>> {
         promise: Promise<Record<string, any>>,
         parserController: JsonStreamParserController,
         propertyPath: string,
-        iteratorController?: AsyncIteratorController<Record<string, any>>,
-        iterator?: AsyncIterableIterator<Record<string, any>>,
+        iteratorController?: any,
+        iterator?: any,
     ) {
         super(promise, parserController, iteratorController, iterator);
         this.propertyPath = propertyPath;
+    }
+
+    /**
+     * Memory optimization: Store only the latest object snapshot.
+     * Prevents O(N^2) memory usage when parsing large objects.
+     */
+    protected override _storeValue(value: Record<string, any>): void {
+        this._buffer = [{ value, sequenceNumber: this._sequenceNumber }];
     }
 
     /**
@@ -466,11 +518,19 @@ export class ArrayPropertyStream<T = any> extends PropertyStream<T[]> {
         promise: Promise<T[]>,
         parserController: JsonStreamParserController,
         propertyPath: string,
-        iteratorController?: AsyncIteratorController<T[]>,
-        iterator?: AsyncIterableIterator<T[]>,
+        iteratorController?: any,
+        iterator?: any,
     ) {
         super(promise, parserController, iteratorController, iterator);
         this.propertyPath = propertyPath;
+    }
+
+    /**
+     * Memory optimization: Store only the latest list snapshot.
+     * Prevents O(N^2) memory usage when parsing large arrays.
+     */
+    protected override _storeValue(value: T[]): void {
+        this._buffer = [{ value, sequenceNumber: this._sequenceNumber }];
     }
 
     /**
@@ -526,8 +586,8 @@ export class NumberPropertyStream extends PropertyStream<number> {
     constructor(
         promise: Promise<number>,
         parserController: JsonStreamParserController,
-        iteratorController?: AsyncIteratorController<number>,
-        iterator?: AsyncIterableIterator<number>,
+        iteratorController?: any,
+        iterator?: any,
     ) {
         super(promise, parserController, iteratorController, iterator);
     }
@@ -541,8 +601,8 @@ export class BooleanPropertyStream extends PropertyStream<boolean> {
     constructor(
         promise: Promise<boolean>,
         parserController: JsonStreamParserController,
-        iteratorController?: AsyncIteratorController<boolean>,
-        iterator?: AsyncIterableIterator<boolean>,
+        iteratorController?: any,
+        iterator?: any,
     ) {
         super(promise, parserController, iteratorController, iterator);
     }
@@ -556,8 +616,8 @@ export class NullPropertyStream extends PropertyStream<null> {
     constructor(
         promise: Promise<null>,
         parserController: JsonStreamParserController,
-        iteratorController?: AsyncIteratorController<null>,
-        iterator?: AsyncIterableIterator<null>,
+        iteratorController?: any,
+        iterator?: any,
     ) {
         super(promise, parserController, iteratorController, iterator);
     }

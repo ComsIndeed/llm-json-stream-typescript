@@ -3,31 +3,10 @@
  *
  * This module provides a modern, type-safe API for parsing streaming JSON data
  * from LLM responses.
- *
- * @example
- * ```typescript
- * interface User {
- *     name: string;
- *     age: number;
- * }
- *
- * const stream = JsonStream.parse<User>(llmResponse);
- *
- * // Using .get<T>(path) - manual path access
- * const name = await stream.get<string>('name');
- *
- * // Streaming chunks
- * for await (const chunk of stream.get<string>('name')) {
- *     console.log(chunk);
- * }
- *
- * // Using .paths() - ergonomic property access
- * const paths = stream.paths();
- * const name = await paths.name;
- * ```
  */
 
 import { JsonStreamParser } from "./json_stream_parser.js";
+import type { ParseEvent } from "./json_stream_parser.js";
 import {
     ArrayPropertyStream,
     ObjectPropertyStream,
@@ -47,18 +26,27 @@ export interface JsonStreamOptions {
      * Default: true
      */
     closeOnRootComplete?: boolean;
+
+    /**
+     * Whether to skip content inside thinking/reasoning tags.
+     * Default: false
+     */
+    skipThoughts?: boolean;
+
+    /**
+     * The start and end delimiters for thinking tags.
+     * Default: ['<think>', '</think>']
+     */
+    thinkingTags?: [string, string];
+
+    /**
+     * Logging callback for parser events.
+     */
+    onLog?: (event: ParseEvent) => void;
 }
 
 /**
  * AsyncJson<T> - A unified type that is both a Promise and an AsyncIterable.
- *
- * This is the core type returned by .get<T>(path). It allows:
- * - Awaiting the final value: `const name = await asyncJson;`
- * - Iterating over streaming chunks: `for await (const chunk of asyncJson) { ... }`
- * - Chained property access: `asyncJson.get<U>('nested.path')`
- *
- * For arrays (AsyncJson<E[]>), iteration yields AsyncJson<E> for each element,
- * allowing chained access on each array item.
  */
 export interface AsyncJson<T>
     extends Promise<T>, AsyncIterable<AsyncJsonIteratorYield<T>> {
@@ -76,9 +64,6 @@ export interface AsyncJson<T>
 
 /**
  * Type helper to determine what type the async iterator yields.
- * - For arrays: yields AsyncJson<E> for each element
- * - For objects: yields [key, AsyncJson<V>] tuples for each property
- * - For primitives: yields T (the value itself, e.g., string chunks)
  */
 export type AsyncJsonIteratorYield<T> = T extends (infer E)[] ? AsyncJson<E>
     : T extends Record<string, infer V>
@@ -87,12 +72,6 @@ export type AsyncJsonIteratorYield<T> = T extends (infer E)[] ? AsyncJson<E>
 
 /**
  * Type helper for creating the proxy path type.
- * This allows for ergonomic property access like `paths.user.name`.
- *
- * The $ methods are used to escape from the proxy:
- * - `.$get<U>(path)` - Get a nested property with manual path
- * - `.$as<U>()` - Cast the current path to a different type
- * - `.$asAsyncJson()` - Convert to AsyncJson for full API access
  */
 export type AsyncJsonPath<T> = T extends Array<infer E> ? AsyncJsonArrayPath<E>
     : T extends object ? AsyncJsonObjectPath<T>
@@ -102,13 +81,9 @@ export type AsyncJsonPath<T> = T extends Array<infer E> ? AsyncJsonArrayPath<E>
  * Helper type for primitive paths (string, number, boolean, null).
  */
 export type AsyncJsonPrimitivePath<T> = AsyncJson<T> & {
-    /** Get a nested property with manual path */
     $get<U>(path: string): AsyncJson<U>;
-    /** Cast to a different type */
     $as<U>(): AsyncJsonPath<U>;
-    /** Convert to AsyncJson for full API access */
     $asAsyncJson(): AsyncJson<T>;
-    /** Alias for $asAsyncJson - convert to AsyncJson for full API access */
     asyncJson(): AsyncJson<T>;
 };
 
@@ -121,13 +96,9 @@ export type AsyncJsonObjectPath<T> =
     }
     & AsyncJson<T>
     & {
-        /** Get a nested property with manual path */
         $get<U>(path: string): AsyncJson<U>;
-        /** Cast to a different type */
         $as<U>(): AsyncJsonPath<U>;
-        /** Convert to AsyncJson for full API access */
         $asAsyncJson(): AsyncJson<T>;
-        /** Alias for $asAsyncJson - convert to AsyncJson for full API access */
         asyncJson(): AsyncJson<T>;
     };
 
@@ -140,13 +111,9 @@ export type AsyncJsonArrayPath<E> =
     }
     & AsyncJson<E[]>
     & {
-        /** Get a nested property with manual path */
         $get<U>(path: string): AsyncJson<U>;
-        /** Cast to a different type */
         $as<U>(): AsyncJsonPath<U>;
-        /** Convert to AsyncJson for full API access */
         $asAsyncJson(): AsyncJson<E[]>;
-        /** Alias for $asAsyncJson - convert to AsyncJson for full API access */
         asyncJson(): AsyncJson<E[]>;
     };
 
@@ -156,35 +123,28 @@ export type AsyncJsonArrayPath<E> =
 
 /**
  * Creates an async iterator that yields AsyncJson<E> for each array element.
- * This allows chaining .get() calls on each element during iteration.
  */
 function createArrayElementIterator<E>(
     arrayStream: ArrayPropertyStream<E>,
     jsonStream: JsonStream<any>,
     basePath: string,
 ): AsyncIterableIterator<AsyncJson<E>> {
-    // Queue of element indices that have been notified
     const elementQueue: number[] = [];
     let resolveNext: ((value: IteratorResult<AsyncJson<E>>) => void) | null =
         null;
     let isDone = false;
-    let nextElementIndex = 0; // Track which elements we've yielded
 
-    // Register callback
     arrayStream.onElement((_propertyStream, index) => {
         elementQueue.push(index);
-        // If someone is waiting, resolve immediately
         if (resolveNext) {
             const idx = elementQueue.shift()!;
-            const elementPath = `${basePath}[${idx}]`;
+            const elementPath = basePath ? `${basePath}[${idx}]` : `[${idx}]`;
             const asyncElement = jsonStream.get<E>(elementPath);
             resolveNext({ value: asyncElement, done: false });
             resolveNext = null;
-            nextElementIndex = idx + 1;
         }
     });
 
-    // When the array completes, mark as done
     arrayStream.promise
         .then(() => {
             isDone = true;
@@ -206,21 +166,17 @@ function createArrayElementIterator<E>(
             return this;
         },
         async next(): Promise<IteratorResult<AsyncJson<E>>> {
-            // If there are queued elements, yield the next one
             if (elementQueue.length > 0) {
                 const idx = elementQueue.shift()!;
-                const elementPath = `${basePath}[${idx}]`;
+                const elementPath = basePath ? `${basePath}[${idx}]` : `[${idx}]`;
                 const asyncElement = jsonStream.get<E>(elementPath);
-
                 return { value: asyncElement, done: false };
             }
 
-            // If done, return done
             if (isDone) {
                 return { value: undefined as any, done: true };
             }
 
-            // Wait for the next element
             return new Promise((resolve) => {
                 resolveNext = resolve;
             });
@@ -231,15 +187,13 @@ function createArrayElementIterator<E>(
 }
 
 /**
- * Creates an async iterator that yields [key, AsyncJson<V>] tuples for each property in an object.
- * This allows iterating through object properties as they're discovered.
+ * Creates an async iterator that yields [key, AsyncJson<V>] tuples for each property.
  */
 function createObjectPropertyIterator<V>(
     objectStream: ObjectPropertyStream,
     jsonStream: JsonStream<any>,
     basePath: string,
 ): AsyncIterableIterator<[string, AsyncJson<V>]> {
-    // Queue of property keys that have been discovered
     const propertyQueue: string[] = [];
     const yieldedKeys = new Set<string>();
     let resolveNext:
@@ -248,10 +202,8 @@ function createObjectPropertyIterator<V>(
     let isDone = false;
     let allProperties: string[] | null = null;
 
-    // Register callback for when properties are discovered
     objectStream.onProperty((_propertyStream, key) => {
         propertyQueue.push(key);
-        // If someone is waiting, resolve immediately
         if (resolveNext) {
             const propKey = propertyQueue.shift()!;
             yieldedKeys.add(propKey);
@@ -262,12 +214,9 @@ function createObjectPropertyIterator<V>(
         }
     });
 
-    // When the object completes, get all properties and mark as done
     objectStream.promise
         .then((obj) => {
-            // Get all property keys from the completed object
             allProperties = Object.keys(obj);
-            // Add any properties that weren't yielded yet
             for (const key of allProperties) {
                 if (!yieldedKeys.has(key) && !propertyQueue.includes(key)) {
                     propertyQueue.push(key);
@@ -275,7 +224,6 @@ function createObjectPropertyIterator<V>(
             }
             isDone = true;
             if (resolveNext) {
-                // If there are remaining properties, don't mark as done yet
                 if (propertyQueue.length > 0) {
                     const propKey = propertyQueue.shift()!;
                     yieldedKeys.add(propKey);
@@ -306,7 +254,6 @@ function createObjectPropertyIterator<V>(
             return this;
         },
         async next(): Promise<IteratorResult<[string, AsyncJson<V>]>> {
-            // If there are queued properties, yield the next one
             if (propertyQueue.length > 0) {
                 const propKey = propertyQueue.shift()!;
                 yieldedKeys.add(propKey);
@@ -317,12 +264,10 @@ function createObjectPropertyIterator<V>(
                 return { value: [propKey, asyncProperty], done: false };
             }
 
-            // If done and no more properties, return done
             if (isDone) {
                 return { value: undefined as any, done: true };
             }
 
-            // Wait for the next property
             return new Promise((resolve) => {
                 resolveNext = resolve;
             });
@@ -334,30 +279,20 @@ function createObjectPropertyIterator<V>(
 
 /**
  * Creates an AsyncJson wrapper around a PropertyStream.
- * This makes the PropertyStream both awaitable and iterable.
- *
- * For arrays, iteration yields AsyncJson<E> for each element, allowing chained access.
- * For objects, iteration yields [key, AsyncJson<V>] tuples for each property.
- * For other types, iteration yields the values directly (e.g., string chunks).
  */
 function createAsyncJsonFromStream<T>(
     propertyStream: PropertyStream<T>,
     jsonStream: JsonStream<any>,
     basePath: string,
 ): AsyncJson<T> {
-    // Create the base promise from the property stream
     const promise = propertyStream.promise;
 
-    // Check stream type
-    // Use constructor name check as a fallback since instanceof may not work across module boundaries
     const isArrayStream = propertyStream instanceof ArrayPropertyStream ||
         propertyStream.constructor.name === "ArrayPropertyStream";
     const isObjectStream = propertyStream instanceof ObjectPropertyStream ||
         propertyStream.constructor.name === "ObjectPropertyStream";
 
-    // Create the AsyncJson object that is both a Promise and AsyncIterable
     const asyncJson: AsyncJson<T> = {
-        // Promise interface - delegates to the underlying promise
         then<TResult1 = T, TResult2 = never>(
             onfulfilled?:
                 | ((value: T) => TResult1 | PromiseLike<TResult1>)
@@ -381,32 +316,24 @@ function createAsyncJsonFromStream<T>(
             return promise.finally(onfinally);
         },
 
-        // Symbol for Promise identification
         [Symbol.toStringTag]: "AsyncJson",
 
-        // AsyncIterable interface
-        // For arrays: yields AsyncJson<E> for each element
-        // For objects: yields [key, AsyncJson<V>] for each property
-        // For other types: yields the values directly
         [Symbol.asyncIterator](): AsyncIterableIterator<
             AsyncJsonIteratorYield<T>
         > {
             if (isArrayStream) {
-                // For arrays, yield AsyncJson<E> for each element
                 return createArrayElementIterator(
                     propertyStream as unknown as ArrayPropertyStream<any>,
                     jsonStream,
                     basePath,
                 ) as AsyncIterableIterator<AsyncJsonIteratorYield<T>>;
             } else if (isObjectStream) {
-                // For objects, yield [key, AsyncJson<V>] tuples
                 return createObjectPropertyIterator(
                     propertyStream as unknown as ObjectPropertyStream,
                     jsonStream,
                     basePath,
                 ) as AsyncIterableIterator<AsyncJsonIteratorYield<T>>;
             } else {
-                // For primitives, yield values directly
                 return propertyStream
                     [Symbol.asyncIterator]() as AsyncIterableIterator<
                         AsyncJsonIteratorYield<T>
@@ -414,23 +341,19 @@ function createAsyncJsonFromStream<T>(
             }
         },
 
-        // Chained property access
         get<U>(path: string): AsyncJson<U> {
             const fullPath = basePath ? `${basePath}.${path}` : path;
             return jsonStream.get<U>(fullPath);
         },
 
-        // Unbuffered iterator access
         unbuffered(): AsyncIterableIterator<AsyncJsonIteratorYield<T>> {
             if (isArrayStream) {
-                // For arrays, unbuffered also yields AsyncJson<E> per element
                 return createArrayElementIterator(
                     propertyStream as unknown as ArrayPropertyStream<any>,
                     jsonStream,
                     basePath,
                 ) as AsyncIterableIterator<AsyncJsonIteratorYield<T>>;
             } else if (isObjectStream) {
-                // For objects, unbuffered yields [key, AsyncJson<V>] tuples
                 return createObjectPropertyIterator(
                     propertyStream as unknown as ObjectPropertyStream,
                     jsonStream,
@@ -454,7 +377,6 @@ function createPathProxy<T>(
     jsonStream: JsonStream<any>,
     basePath: string = "",
 ): AsyncJsonPath<T> {
-    // Lazily create the AsyncJson only when we actually need it (for await/iterate)
     let cachedAsyncJson: AsyncJson<T> | null = null;
     const getAsyncJson = () => {
         if (!cachedAsyncJson) {
@@ -465,8 +387,6 @@ function createPathProxy<T>(
 
     return new Proxy({} as any, {
         get(target, prop, receiver) {
-            // Handle Promise protocol - critical for await to work
-            // Only create the AsyncJson when we actually need to await
             if (prop === "then") {
                 const asyncJson = getAsyncJson();
                 return asyncJson.then.bind(asyncJson);
@@ -480,28 +400,23 @@ function createPathProxy<T>(
                 return asyncJson.finally.bind(asyncJson);
             }
 
-            // Handle AsyncIterable protocol
             if (prop === Symbol.asyncIterator) {
                 const asyncJson = getAsyncJson();
                 return asyncJson[Symbol.asyncIterator].bind(asyncJson);
             }
 
-            // Handle Symbol.toStringTag for proper promise identification
             if (prop === Symbol.toStringTag) {
                 return "AsyncJsonPath";
             }
 
-            // Handle toJSON to prevent infinite recursion in JSON.stringify
             if (prop === "toJSON") {
                 return () => undefined;
             }
 
-            // Handle util.inspect.custom for Node.js pretty printing
             if (prop === Symbol.for("nodejs.util.inspect.custom")) {
                 return () => `[AsyncJsonPath: ${basePath || "root"}]`;
             }
 
-            // Handle framework-specific symbols
             if (
                 prop === "__esModule" ||
                 prop === "$$typeof" ||
@@ -512,7 +427,6 @@ function createPathProxy<T>(
                 return undefined;
             }
 
-            // Handle $get method - manual path access from current path
             if (prop === "$get") {
                 return <U>(innerPath: string): AsyncJson<U> => {
                     const fullPath = basePath
@@ -522,55 +436,47 @@ function createPathProxy<T>(
                 };
             }
 
-            // Handle $as method - cast to a different type
             if (prop === "$as") {
                 return <U>(): AsyncJsonPath<U> => {
-                    return createPathProxy<U>(jsonStream, basePath);
+                    return (jsonStream as any)._getPathProxy(basePath);
                 };
             }
 
-            // Handle $asAsyncJson method - convert to AsyncJson
             if (prop === "$asAsyncJson") {
                 return (): AsyncJson<T> => {
                     return getAsyncJson();
                 };
             }
 
-            // Handle asyncJson method - alias for $asAsyncJson
             if (prop === "asyncJson") {
                 return (): AsyncJson<T> => {
                     return getAsyncJson();
                 };
             }
 
-            // Handle get method (for AsyncJson compatibility)
             if (prop === "get") {
                 const asyncJson = getAsyncJson();
                 return asyncJson.get.bind(asyncJson);
             }
 
-            // Handle unbuffered method
             if (prop === "unbuffered") {
                 const asyncJson = getAsyncJson();
                 return asyncJson.unbuffered.bind(asyncJson);
             }
 
-            // Handle numeric indices (array access)
             if (typeof prop === "string" && /^\d+$/.test(prop)) {
                 const index = parseInt(prop, 10);
                 const newPath = basePath
                     ? `${basePath}[${index}]`
                     : `[${index}]`;
-                return createPathProxy(jsonStream, newPath);
+                return (jsonStream as any)._getPathProxy(newPath);
             }
 
-            // Handle string property access - create a new proxy with extended path
             if (typeof prop === "string") {
                 const newPath = basePath ? `${basePath}.${prop}` : prop;
-                return createPathProxy(jsonStream, newPath);
+                return (jsonStream as any)._getPathProxy(newPath);
             }
 
-            // Default: access on the target
             return Reflect.get(target, prop, receiver);
         },
     }) as AsyncJsonPath<T>;
@@ -580,9 +486,6 @@ function createPathProxy<T>(
 // JsonStream Class
 // ============================================================================
 
-/**
- * Pending property request that waits for the parser to create the stream
- */
 interface PendingPropertyRequest<T> {
     resolve: (stream: PropertyStream<T>) => void;
     reject: (error: Error) => void;
@@ -590,28 +493,6 @@ interface PendingPropertyRequest<T> {
 
 /**
  * JsonStream<T> - The main parser object for streaming JSON parsing.
- *
- * @example
- * ```typescript
- * interface Response {
- *     message: string;
- *     data: { items: string[] };
- * }
- *
- * const stream = JsonStream.parse<Response>(llmResponse);
- *
- * // Get a property
- * const message = await stream.get<string>('message');
- *
- * // Stream chunks
- * for await (const chunk of stream.get<string>('message')) {
- *     console.log(chunk);
- * }
- *
- * // Use ergonomic paths
- * const paths = stream.paths();
- * const firstItem = await paths.data.items[0];
- * ```
  */
 export class JsonStream<T = any> {
     private parser: JsonStreamParser;
@@ -619,13 +500,15 @@ export class JsonStream<T = any> {
         new Map();
     private disposed = false;
 
+    // Reference stability caching
+    private cachedAsyncJsons: Map<string, AsyncJson<any>> = new Map();
+    private cachedProxies: Map<string, AsyncJsonPath<any>> = new Map();
+
     private constructor(
         stream: AsyncIterable<string>,
         options?: JsonStreamOptions,
     ) {
         this.parser = new JsonStreamParser(stream, options);
-
-        // Hook into the parser to intercept property stream creation
         this.setupPropertyInterception();
     }
 
@@ -645,41 +528,71 @@ export class JsonStream<T = any> {
 
     /**
      * Gets a property at the specified path.
+     * Guarantees reference identity stability (returns exact same instance on multiple calls).
      *
-     * @param path - The path to the property (supports dot notation and bracket notation)
+     * @param path - The path to the property
      * @returns An AsyncJson that can be awaited or iterated
      */
     get<U>(path: string): AsyncJson<U> {
         this.checkDisposed();
 
-        // The path is used directly - the parser expects bracket notation for arrays
-        // e.g., "users[0].name" not "users.0.name"
+        const cached = this.cachedAsyncJsons.get(path);
+        if (cached) {
+            return cached as AsyncJson<U>;
+        }
 
-        // Check if we already have a controller for this path
-        const existingController = (this.parser as any).propertyControllers
-            ?.get(
-                path,
-            );
+        let result: AsyncJson<U>;
+        const existingController = (this.parser as any).propertyControllers?.get(path);
         if (existingController) {
-            return createAsyncJsonFromStream<U>(
+            result = createAsyncJsonFromStream<U>(
                 existingController.propertyStream,
                 this,
                 path,
             );
+        } else {
+            result = this.createPendingAsyncJson<U>(path);
         }
 
-        // Create a pending request that will be resolved when the parser creates the stream
-        return this.createPendingAsyncJson<U>(path);
+        this.cachedAsyncJsons.set(path, result);
+        return result;
     }
 
     /**
      * Returns a proxy object for ergonomic property access.
+     * Guarantees reference identity stability for all nested paths.
      *
      * @returns An AsyncJsonPath proxy for the root object
      */
     paths(): AsyncJsonPath<T> {
         this.checkDisposed();
-        return createPathProxy<T>(this, "");
+        return this._getPathProxy<T>("");
+    }
+
+    /**
+     * Root convenience getter returning the root object promise.
+     */
+    get future(): Promise<T> {
+        return this.get<T>("");
+    }
+
+    /**
+     * Root convenience getter returning the root object stream.
+     */
+    get stream(): AsyncJson<T> {
+        return this.get<T>("");
+    }
+
+    /**
+     * Internal method to get or create a cached proxy path.
+     * @internal
+     */
+    private _getPathProxy<U>(path: string): AsyncJsonPath<U> {
+        let proxy = this.cachedProxies.get(path);
+        if (!proxy) {
+            proxy = createPathProxy<U>(this, path);
+            this.cachedProxies.set(path, proxy);
+        }
+        return proxy as AsyncJsonPath<U>;
     }
 
     /**
@@ -697,6 +610,8 @@ export class JsonStream<T = any> {
             }
         }
         this.pendingRequests.clear();
+        this.cachedAsyncJsons.clear();
+        this.cachedProxies.clear();
 
         await this.parser.dispose();
     }
@@ -707,17 +622,7 @@ export class JsonStream<T = any> {
         }
     }
 
-    /**
-     * Creates an AsyncJson for a path that doesn't have a stream yet.
-     *
-     * IMPORTANT: We wrap PropertyStream in a container object to avoid JavaScript's
-     * automatic thenable unwrapping. When a Promise resolves with a thenable (like
-     * PropertyStream), it automatically adopts the thenable's state instead of
-     * resolving with the thenable itself. By wrapping in { stream }, we ensure
-     * we get the PropertyStream object.
-     */
     private createPendingAsyncJson<U>(path: string): AsyncJson<U> {
-        // Create deferred promise - wrap in container to avoid thenable unwrapping
         let resolveStream: (wrapped: { stream: PropertyStream<U> }) => void;
         let rejectStream: (error: Error) => void;
         const streamPromise = new Promise<{ stream: PropertyStream<U> }>(
@@ -727,22 +632,19 @@ export class JsonStream<T = any> {
             },
         );
 
-        // Register the pending request - resolver unwraps before resolving
         let requests = this.pendingRequests.get(path);
         if (!requests) {
             requests = [];
             this.pendingRequests.set(path, requests);
         }
-        // Wrap the stream when resolving to avoid thenable unwrapping
         requests.push({
             resolve: (stream: PropertyStream<U>) => resolveStream!({ stream }),
             reject: rejectStream!,
         });
 
-        // Create the promise that resolves to the final value
         const valuePromise = streamPromise.then(({ stream }) => stream.promise);
-
-        // Create async iterator that will be bound when stream is available
+        // Prevent unhandled promise rejections globally if the promise is discarded or disposed
+        valuePromise.catch(() => {});
         const self = this;
 
         const asyncJson: AsyncJson<U> = {
@@ -774,7 +676,6 @@ export class JsonStream<T = any> {
             [Symbol.asyncIterator](): AsyncIterableIterator<
                 AsyncJsonIteratorYield<U>
             > {
-                // Create an iterator that waits for the stream to be ready, then uses our custom logic
                 let wrappedAsyncJson: AsyncJson<U> | null = null;
                 let streamIterator:
                     | AsyncIterableIterator<AsyncJsonIteratorYield<U>>
@@ -787,10 +688,8 @@ export class JsonStream<T = any> {
                     async next(): Promise<
                         IteratorResult<AsyncJsonIteratorYield<U>>
                     > {
-                        // Wait for the stream to be available and wrap it
                         if (!wrappedAsyncJson) {
                             const { stream } = await streamPromise;
-                            // Use createAsyncJsonFromStream to get proper iteration behavior
                             wrappedAsyncJson = createAsyncJsonFromStream<U>(
                                 stream,
                                 self,
@@ -798,7 +697,6 @@ export class JsonStream<T = any> {
                             );
                         }
 
-                        // Get or create the iterator from the wrapped async json
                         if (!streamIterator) {
                             streamIterator = wrappedAsyncJson
                                 [
@@ -821,7 +719,6 @@ export class JsonStream<T = any> {
             },
 
             unbuffered(): AsyncIterableIterator<AsyncJsonIteratorYield<U>> {
-                // For pending async json, create an iterator that waits for the stream and delegates to wrapped AsyncJson
                 let wrappedAsyncJson: AsyncJson<U> | null = null;
                 let unbufferedIter:
                     | AsyncIterableIterator<AsyncJsonIteratorYield<U>>
@@ -834,7 +731,6 @@ export class JsonStream<T = any> {
                     async next(): Promise<
                         IteratorResult<AsyncJsonIteratorYield<U>>
                     > {
-                        // Wait for the stream and create wrapped async json if needed
                         if (!wrappedAsyncJson) {
                             const { stream } = await streamPromise;
                             wrappedAsyncJson = createAsyncJsonFromStream<U>(
@@ -844,7 +740,6 @@ export class JsonStream<T = any> {
                             );
                         }
 
-                        // Get or create the unbuffered iterator from wrapped async json
                         if (!unbufferedIter) {
                             unbufferedIter = wrappedAsyncJson
                                 .unbuffered() as AsyncIterableIterator<
@@ -862,16 +757,10 @@ export class JsonStream<T = any> {
         return asyncJson;
     }
 
-    /**
-     * Sets up interception of property stream creation to resolve pending requests.
-     */
     private setupPropertyInterception(): void {
         const self = this;
-
-        // Get the controller from the parser
         const controller = (this.parser as any).controller;
 
-        // Patch the controller's getPropertyStream method to intercept property creation
         const originalGetPropertyStream = controller.getPropertyStream.bind(
             controller,
         );
@@ -887,7 +776,6 @@ export class JsonStream<T = any> {
         ) => {
             const stream = originalGetPropertyStream(propertyPath, streamType);
 
-            // Resolve any pending requests for this path
             const requests = self.pendingRequests.get(propertyPath);
             if (requests) {
                 for (const request of requests) {
@@ -899,8 +787,6 @@ export class JsonStream<T = any> {
             return stream;
         };
 
-        // Also patch getObjectProperty and getArrayProperty on the parser
-        // to resolve pending requests for root objects/arrays
         const originalGetObjectProperty = (this.parser as any).getObjectProperty
             .bind(
                 this.parser,
@@ -908,7 +794,6 @@ export class JsonStream<T = any> {
         (this.parser as any).getObjectProperty = (propertyPath: string) => {
             const stream = originalGetObjectProperty(propertyPath);
 
-            // Resolve any pending requests for this path
             const requests = self.pendingRequests.get(propertyPath);
             if (requests) {
                 for (const request of requests) {
@@ -927,7 +812,6 @@ export class JsonStream<T = any> {
         (this.parser as any).getArrayProperty = (propertyPath: string) => {
             const stream = originalGetArrayProperty(propertyPath);
 
-            // Resolve any pending requests for this path
             const requests = self.pendingRequests.get(propertyPath);
             if (requests) {
                 for (const request of requests) {
@@ -939,13 +823,11 @@ export class JsonStream<T = any> {
             return stream;
         };
 
-        // Hook into root delegate creation to resolve pending requests for path ""
         (this.parser as any).onRootDelegateCreated = (
             type: "object" | "array",
         ) => {
             const requests = self.pendingRequests.get("");
             if (requests) {
-                // Create the root stream now that we know the type
                 const stream = type === "object"
                     ? originalGetObjectProperty("")
                     : originalGetArrayProperty("");
@@ -956,7 +838,6 @@ export class JsonStream<T = any> {
             }
         };
 
-        // Also hook into handleStreamEnd to reject any remaining pending requests
         const originalHandleStreamEnd = (this.parser as any).handleStreamEnd
             .bind(
                 this.parser,
@@ -964,7 +845,6 @@ export class JsonStream<T = any> {
         (this.parser as any).handleStreamEnd = () => {
             originalHandleStreamEnd();
 
-            // Reject any remaining pending requests
             const error = new Error("Stream ended before property was found");
             for (const requests of self.pendingRequests.values()) {
                 for (const request of requests) {

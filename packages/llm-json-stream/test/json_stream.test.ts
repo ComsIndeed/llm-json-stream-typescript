@@ -858,3 +858,104 @@ describe("Array Iteration with Chained Access", () => {
 // ============================================================================
 // Backward Compatibility Tests
 // Backward Compatibility tests removed - type-specific methods have been removed from API
+
+// ============================================================================
+// Parity and Optimization Tests (Dart 1.0.0 Migrations)
+// ============================================================================
+
+describe("Parity and Optimization (Dart 1.0.0 Migrations)", () => {
+    test("guarantees reference identity stability (caching)", async () => {
+        const json = '{"user":{"name":"Alice"}}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 5,
+            interval: 10,
+        });
+
+        const jsonStream = JsonStream.parse<any>(stream);
+
+        // 1. Multiple calls to get() on same path return identical reference
+        const name1 = jsonStream.get("user.name");
+        const name2 = jsonStream.get("user.name");
+        expect(Object.is(name1, name2)).toBe(true);
+
+        // 2. Multiple calls to get() on pending paths return identical reference
+        const age1 = jsonStream.get("user.age");
+        const age2 = jsonStream.get("user.age");
+        age1.catch(() => {}); // catch rejection on dispose
+        age2.catch(() => {}); // catch rejection on dispose
+        expect(Object.is(age1, age2)).toBe(true);
+
+        // 3. Proxy path property access returns identical proxy reference
+        const paths = jsonStream.paths();
+        const user1 = paths.user;
+        const user2 = paths.user;
+        expect(Object.is(user1, user2)).toBe(true);
+
+        const userName1 = paths.user.name;
+        const userName2 = paths.user.name;
+        expect(Object.is(userName1, userName2)).toBe(true);
+
+        await jsonStream.dispose();
+    });
+
+    test("supports root convenience getters (direct await/iteration)", async () => {
+        const json = '{"name":"Alice","age":30}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 5,
+            interval: 10,
+        });
+
+        const jsonStream = JsonStream.parse<any>(stream);
+
+        // 1. Direct await on the JsonStream instance future
+        const result = await jsonStream.future;
+        expect(result).toEqual({ name: "Alice", age: 30 });
+
+        // 2. Direct iteration on the JsonStream instance stream
+        const jsonStream2 = JsonStream.parse<any>(streamTextInChunks({
+            text: json,
+            chunkSize: 5,
+            interval: 10,
+        }));
+        const properties: [string, any][] = [];
+        for await (const [key, valueAsync] of jsonStream2.stream) {
+            const value = await valueAsync;
+            properties.push([key, value]);
+        }
+        expect(properties.find(p => p[0] === "name")?.[1]).toBe("Alice");
+        expect(properties.find(p => p[0] === "age")?.[1]).toBe(30);
+
+        await jsonStream.dispose();
+        await jsonStream2.dispose();
+    });
+
+    test("optimizes object/array buffers (O(1) memory)", async () => {
+        const json = '{"items":[1,2,3,4,5]}';
+        const stream = streamTextInChunks({
+            text: json,
+            chunkSize: 5,
+            interval: 10,
+        });
+
+        const jsonStream = JsonStream.parse<any>(stream);
+        const itemsStream = jsonStream.get<number[]>("items");
+
+        // Wait for it to resolve so the buffer accumulates snapshots
+        await itemsStream;
+
+        // Extract internal stream representation via the parser's controllers
+        const controller = (jsonStream as any).parser.propertyControllers.get("items");
+        const propertyStream = controller.propertyStream;
+        const buffer = propertyStream._buffer;
+        
+        // Since it's an ArrayPropertyStream, buffer should store ONLY the latest snapshot (length === 1)
+        expect(buffer).toBeDefined();
+        expect(buffer.length).toBe(1);
+        expect(buffer[0].value).toEqual([1, 2, 3, 4, 5]);
+
+        await jsonStream.dispose();
+    });
+});
+
